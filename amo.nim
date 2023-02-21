@@ -33,7 +33,7 @@ func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
   for year in years:
     for month in Month:
       result.add (year,month,values[idx],0.0)
-      if idx < values.len-1:inc idx else:return
+      if idx < values.high:inc idx else:return
 
 func calcAnoms(dataPoints:seq[DataPoint]):seq[DataPoint] =
   let monthlyMeans = dataPoints.calcMonthlyMeans
@@ -41,7 +41,7 @@ func calcAnoms(dataPoints:seq[DataPoint]):seq[DataPoint] =
   for i,dataPoint in dataPoints:
     result[i].anom = dataPoint.value-monthlyMeans[dataPoint.month.ord-1]
 
-func parseYearsAndValues(dataItems:seq[string]): (seq[int],seq[float]) =
+func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
   var 
     years:seq[int]
     values:seq[float]
@@ -75,7 +75,7 @@ func anomsMatrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
     for month in Month:
       let anom = $dataPoints[idx].anom
       line = line&anom[0..(if dataPoints[idx].anom < 0:6 else:5)].align(9)
-      if idx == dataPoints.len-1: break
+      if idx == dataPoints.high: break
       inc idx
     result.add line
   result.add "-".cycle(result[^2].len).join
