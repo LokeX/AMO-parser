@@ -3,6 +3,7 @@ import strutils
 import sequtils
 import times
 import math
+import sugar
 
 type 
   DataPoint = tuple
@@ -20,12 +21,14 @@ func parseDataItems(data:string):seq[string] =
   let
     dataItems = data.splitWhitespace
     startIdx = 2
-    endIdx = dataItems.find("AMO")-1
-  toSeq(startIdx..endIdx).mapIt(dataItems[it]).filterIt(it[0] != '-')
+    endIdx = dataItems.find("AMO")
+  toSeq(startIdx..<endIdx).mapIt(dataItems[it]).filterIt(it[0] != '-')
 
 func calcMonthlyMeans(dataPoints:seq[DataPoint]):seq[float] =
   for month in Month:
-    let monthlyValues = dataPoints.filterIt(it.month == month).mapIt(it.value)
+    let monthlyValues = collect:
+      for dataPoint in datapoints: 
+        if month == dataPoint.month: dataPoint.value
     result.add monthlyValues.sum/monthlyValues.len.toFloat
 
 func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
@@ -38,25 +41,23 @@ func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
 func calcAnoms(dataPoints:seq[DataPoint]):seq[DataPoint] =
   let monthlyMeans = dataPoints.calcMonthlyMeans
   result = dataPoints
-  for i,dataPoint in dataPoints:
-    result[i].anom = dataPoint.value-monthlyMeans[dataPoint.month.ord-1]
+  for idx,dataPoint in dataPoints:
+    result[idx].anom = dataPoint.value-monthlyMeans[dataPoint.month.ord-1]
 
 func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
   var 
     years:seq[int]
     values:seq[float]
-  for count,dataItem in dataItems:
-    if count == 0 or count mod 13 == 0:
+  for idx,dataItem in dataItems:
+    if idx == 0 or idx mod 13 == 0:
       years.add dataItem.strToInt
     else:
       values.add dataItem.strToFloat
   (years,values)
 
 func parseData(data:string):(seq[DataPoint],seq[int]) =
-  let
-    (years,values) = data.parseDataItems.parseYearsAndValues
-    dataPoints = generateDataPoints(years,values).calcAnoms
-  (dataPoints,years)
+  let (years,values) = data.parseDataItems.parseYearsAndValues
+  (generateDataPoints(years,values).calcAnoms,years)
 
 func anomsColFormat(dataPoints:seq[DataPoint]):seq[string] =
   for dataPoint in dataPoints:
