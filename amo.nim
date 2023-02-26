@@ -11,12 +11,6 @@ type
     month:Month
     value,anom:float
  
-func strToFloat(s:string):float = 
-  try:s.parseFloat except:0
-
-func strToInt(s:string):int = 
-  try:s.parseInt except:0
-
 func parseDataItems(data:string):seq[string] =
   let
     dataItems = data.splitWhitespace
@@ -50,16 +44,16 @@ func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
     values:seq[float]
   for idx,dataItem in dataItems:
     if idx == 0 or idx mod 13 == 0:
-      years.add dataItem.strToInt
+      years.add dataItem.parseInt
     else:
-      values.add dataItem.strToFloat
+      values.add dataItem.parseFloat
   (years,values)
 
 func parseData(data:string):(seq[DataPoint],seq[int]) =
   let (years,values) = data.parseDataItems.parseYearsAndValues
   (generateDataPoints(years,values).calcAnoms,years)
 
-func anomsColFormat(dataPoints:seq[DataPoint]):seq[string] =
+func columnFormat(dataPoints:seq[DataPoint]):seq[string] =
   for dataPoint in dataPoints:
     let
       month = $dataPoint.month
@@ -68,7 +62,7 @@ func anomsColFormat(dataPoints:seq[DataPoint]):seq[string] =
       anom = $dataPoint.anom
     result.add date&anom[0..5].indent(4)
 
-func anomsMatrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
+func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
   var idx = 0
   result.add " ".cycle(4).join&Month.mapIt($it).mapIt(it[0..2].align(9)).join
   for year in years:
@@ -81,18 +75,12 @@ func anomsMatrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
     result.add line
   result.add "-".cycle(result[^2].len).join
 
-proc writeFile(path:string,lines:seq[string]) =
+proc output(path:string,lines:seq[string]) =
   var txtFile = open(path,fmWrite)
   defer: close(txtFile)
-  for line in lines: txtFile.writeLine(line)
-
-proc echoFile(path:string) =
-  for line in lines(path):echo line
-  echo "File: ",path
-
-proc output(path:string,lines:seq[string]) =
-  writeFile(path,lines)
-  echoFile(path)
+  for line in lines: 
+    txtFile.writeLine(line)
+    echo line
 
 const
   fileNameCol = "anomscol.txt"
@@ -100,5 +88,5 @@ const
   url = "https://psl.noaa.gov/data/correlation/amon.us.long.mean.data"
 
 let (datapoints,years) = newHttpClient().getContent(url).parseData
-output(fileNameCol,dataPoints.anomsColFormat)
-output(fileNameMatrix,dataPoints.anomsMatrixFormat(years))
+output(fileNameCol,dataPoints.columnFormat)
+output(fileNameMatrix,dataPoints.matrixFormat(years))
