@@ -11,12 +11,12 @@ type
     month:Month
     value,anom:float
  
-func parseDataItems(data:string):seq[string] =
-  let
-    dataItems = data.splitWhitespace
-    startIdx = 2
-    endIdx = dataItems.find("AMO")
-  toSeq(startIdx..<endIdx).mapIt(dataItems[it]).filterIt(it[0] != '-')
+func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
+  var idx = 0
+  for year in years:
+    for month in Month:
+      result.add (year,month,values[idx],0.0)
+      if idx < values.high:inc idx else:return
 
 func calcMonthlyMeans(dataPoints:seq[DataPoint]):seq[float] =
   for month in Month:
@@ -25,18 +25,18 @@ func calcMonthlyMeans(dataPoints:seq[DataPoint]):seq[float] =
         if month == dataPoint.month: dataPoint.value
     result.add monthlyValues.sum/monthlyValues.len.toFloat
 
-func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
-  var idx = 0
-  for year in years:
-    for month in Month:
-      result.add (year,month,values[idx],0.0)
-      if idx < values.high:inc idx else:return
-
 func calcAnoms(dataPoints:seq[DataPoint]):seq[DataPoint] =
   let monthlyMeans = dataPoints.calcMonthlyMeans
   result = dataPoints
   for idx,dataPoint in dataPoints:
     result[idx].anom = dataPoint.value-monthlyMeans[dataPoint.month.ord-1]
+
+func parseDataItems(data:string):seq[string] =
+  let
+    dataItems = data.splitWhitespace
+    startIdx = 2
+    endIdx = dataItems.find("AMO")
+  toSeq(startIdx..<endIdx).mapIt(dataItems[it]).filterIt(it[0] != '-')
 
 func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
   var 
