@@ -36,7 +36,9 @@ func parseDataItems(data:string):seq[string] =
     dataItems = data.splitWhitespace
     startIdx = 2
     endIdx = dataItems.find("AMO")
-  toSeq(startIdx..<endIdx).mapIt(dataItems[it]).filterIt(it[0] != '-')
+  for idx,dataItem in dataItems:
+    if idx in startIdx..<endIdx and dataItem[0] != '-': 
+      result.add dataItem
 
 func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
   var 
@@ -49,22 +51,18 @@ func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
       values.add dataItem.parseFloat
   (years,values)
 
-func parseData(data:string):(seq[DataPoint],seq[int]) =
+func parseData(data:string): (seq[DataPoint],seq[int]) =
   let (years,values) = data.parseDataItems.parseYearsAndValues
   (generateDataPoints(years,values).calcAnoms,years)
 
 func columnFormat(dataPoints:seq[DataPoint]):seq[string] =
   for dataPoint in dataPoints:
-    let
-      month = $dataPoint.month
-      year = $dataPoint.year
-      date = month[0..2]&" "&year
-      anom = $dataPoint.anom
-    result.add date&anom[0..5].indent(4)
+    let date = ($dataPoint.month)[0..2]&" "&($dataPoint.year)
+    result.add date&($dataPoint.anom)[0..5].indent(4)
 
 func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
   var idx = 0
-  result.add " ".cycle(4).join&Month.mapIt($it).mapIt(it[0..2].align(9)).join
+  result.add " ".cycle(4).join&Month.mapIt(($it)[0..2].align(9)).join
   for year in years:
     var line = $year
     for month in Month:
