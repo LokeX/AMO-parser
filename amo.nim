@@ -4,10 +4,7 @@ import sequtils
 import times
 
 type 
-  DataPoint = tuple
-    year:int
-    month:Month
-    value,anom:float
+  DataPoint = tuple[year:int,month:Month,value,anom:float]
   MeansData = array[Month,tuple[accum:float,count:int]]
  
 func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
@@ -31,24 +28,16 @@ func calcAnoms(dataPoints:seq[DataPoint]):seq[DataPoint] =
     )
 
 func parseDataItems(data:string):seq[string] =
-  let
-    dataItems = data.splitWhitespace
-    startIdx = 2
-    endIdx = dataItems.find("AMO")
-  for idx,dataItem in dataItems:
-    if idx in startIdx..<endIdx and dataItem[0] != '-': 
-      result.add dataItem
+  let dataItems = data.splitWhitespace
+  for dataItem in dataItems[2..<dataItems.find("AMO")]:
+    if dataItem[0] != '-': result.add dataItem
 
 func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
-  var 
-    years:seq[int]
-    values:seq[float]
   for idx,dataItem in dataItems:
     if idx == 0 or idx mod 13 == 0:
-      years.add dataItem.parseInt
+      result[0].add dataItem.parseInt
     else:
-      values.add dataItem.parseFloat
-  (years,values)
+      result[1].add dataItem.parseFloat
 
 func parseData(data:string): (seq[DataPoint],seq[int]) =
   let (years,values) = data.parseDataItems.parseYearsAndValues
