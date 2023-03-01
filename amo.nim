@@ -57,7 +57,7 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
     var line = $year
     for month in Month:
       let anom = dataPoints[idx].anom
-      line = line&($anom)[0..(if anom < 0:6 else:5)].align(9)
+      line = line&($anom)[0..(if anom < 0: 6 else: 5)].align(9)
       if idx == dataPoints.high: break
       inc idx
     result.add line
@@ -70,11 +70,11 @@ proc output(path:string,lines:seq[string]) =
     txtFile.writeLine(line)
     echo line
 
-const
-  fileNameCol = "anomscol.txt"
-  fileNameMatrix = "anomsmatrix.txt"
-  url = "https://psl.noaa.gov/data/correlation/amon.us.long.mean.data"
-
-let (datapoints,years) = newHttpClient().getContent(url).parseData
-output(fileNameCol,dataPoints.columnFormat)
-output(fileNameMatrix,dataPoints.matrixFormat(years))
+const url = "https://psl.noaa.gov/data/correlation/amon.us.long.mean.data"
+let 
+  (datapoints,years) = newHttpClient().getContent(url).parseData
+  puts = [
+    ("anomscol.txt",dataPoints.columnFormat),
+    ("anomsmatrix.txt",dataPoints.matrixFormat(years))
+  ]
+for put in puts: output(put[0],put[1])
