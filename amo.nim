@@ -2,14 +2,13 @@ import httpClient
 import strutils
 import sequtils
 import times
-import math
-import sugar
 
 type 
   DataPoint = tuple
     year:int
     month:Month
     value,anom:float
+  MeansData = array[Month,tuple[accum:float,count:int]]
  
 func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
   var idx = 0
@@ -18,18 +17,18 @@ func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
       result.add (year,month,values[idx],0.0)
       if idx < values.high:inc idx else:return
 
-func calcMonthlyMeans(dataPoints:seq[DataPoint]):seq[float] =
-  for month in Month:
-    let monthlyValues = collect:
-      for dataPoint in datapoints: 
-        if month == dataPoint.month: dataPoint.value
-    result.add monthlyValues.sum/monthlyValues.len.toFloat
+func meansData(dataPoints:seq[DataPoint]):MeansData =
+  for datapoint in datapoints:
+    result[datapoint.month].accum += datapoint.value
+    result[datapoint.month].count += 1
 
 func calcAnoms(dataPoints:seq[DataPoint]):seq[DataPoint] =
-  let monthlyMeans = dataPoints.calcMonthlyMeans
-  result = dataPoints
-  for idx,dataPoint in dataPoints:
-    result[idx].anom = dataPoint.value-monthlyMeans[dataPoint.month.ord-1]
+  let meansData = dataPoints.meansData
+  for dataPoint in dataPoints:
+    result.add dataPoint
+    result[^1].anom = dataPoint.value-(
+      meansData[dataPoint.month].accum/meansData[dataPoint.month].count.toFloat
+    )
 
 func parseDataItems(data:string):seq[string] =
   let
