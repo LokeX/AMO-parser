@@ -12,6 +12,7 @@ const dataSets = [
 ]
 
 type 
+  DataSet = tuple[url,colFile,matrixFile,id:string]
   DataPoint = tuple[year:int,month:Month,value,anom:float]
   MeanData = tuple[accum:float,count:int]
  
@@ -69,19 +70,20 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
     result.add line
   result.add '-'.repeat(result[^2].len).join
 
-proc output(parsedData:(string,seq[string])) =
-  let (path,lines) = parsedData
+proc output(processedData:(string,seq[string])) =
+  let (path,lines) = processedData
   var txtFile = open(path,fmWrite)
   defer: close(txtFile)
   for line in lines: 
     txtFile.writeLine(line)
     echo line
 
-proc processDataSet(dataSet:(string,string,string,string)):array[2,(string,seq[string])] =
-  let 
-    (url,colFile,matrixFile,id) = dataSet
-    (datapoints,years) = newHttpClient().getContent(url).parseData(id)
-  [(colFile,dataPoints.columnFormat),(matrixFile,dataPoints.matrixFormat(years))]  
+proc processDataSet(dataSet:DataSet):array[2,(string,seq[string])] =
+  let (datapoints,years) = newHttpClient().getContent(dataSet.url).parseData(dataSet.id)
+  result = [
+    (dataSet.colFile,dataPoints.columnFormat),
+    (dataSet.matrixFile,dataPoints.matrixFormat(years))
+  ]  
 
 for dataSet in dataSets:
   for processedData in dataSet.processDataSet: 
