@@ -4,6 +4,14 @@ import sequtils
 import times
 import sugar
 
+const 
+  inOuts = [
+    ("https://psl.noaa.gov/data/correlation/amon.us.long.mean.data",
+    "amocol.txt","amomatrix.txt","AMO"),
+    ("https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data",
+    "ninocol.txt","ninomatrix.txt","NINA34")
+  ]
+
 type 
   DataPoint = tuple[year:int,month:Month,value,anom:float]
   MeanData = tuple[accum:float,count:int]
@@ -80,11 +88,4 @@ proc inOut(inOuts:openArray[(string,string,string,string)]) =
       ]
     for put in puts: output(put[0],put[1])
 
-const 
-  inOuts = [
-    ("https://psl.noaa.gov/data/correlation/amon.us.long.mean.data",
-    "amocol.txt","amomatrix.txt","AMO"),
-    ("https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data",
-    "ninocol.txt","ninomatrix.txt","NINA34")
-  ]
 inOut(inOuts)
