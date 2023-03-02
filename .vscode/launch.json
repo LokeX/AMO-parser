@@ -15,7 +15,7 @@
       "type": "lldb",
       "request": "launch",
       "name": "Launch",
-      "program": "${workspaceFolder}/voracity",
+      "program": "${workspaceFolder}",
       "args": [],
       "cwd": "${workspaceFolder}"
     }
