@@ -7,7 +7,7 @@
       "label": "Amo",
       "type" :"process",
       "command": "nim",
-      "args": ["c", "-r", "-d:ssl","amo.nim"],
+      "args": ["c", "-r", "-d:ssl","sstanoms.nim"],
       "problemMatcher": [],
       "group": {
         "kind": "build",
