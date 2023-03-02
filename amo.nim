@@ -12,7 +12,7 @@ func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
   for year in years:
     for month in Month:
       result.add (year,month,values[idx],0.0)
-      if idx < values.high:inc idx else:return
+      if idx < values.high: inc idx else: return
 
 func parseMonthlyMeansData(dataPoints:seq[DataPoint]):array[Month,MeanData] =
   for datapoint in datapoints:
@@ -44,11 +44,10 @@ func parseData(data:string): (seq[DataPoint],seq[int]) =
   (generateDataPoints(years,values).calcAnoms,years)
 
 func columnFormat(dataPoints:seq[DataPoint]):seq[string] =
-  for dataPoint in dataPoints:
-    result.add (
-      ($dataPoint.month)[0..2]&" "&($dataPoint.year)&
-      ($dataPoint.anom)[0..5].indent(4)
-    )
+  dataPoints.mapIt(
+    ($it.month)[0..2]&" "&($it.year)&
+    ($it.anom)[0..5].indent(4)
+  )
 
 func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
   var idx = 0
