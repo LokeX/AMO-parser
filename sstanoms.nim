@@ -7,6 +7,7 @@ import sugar
 type 
   DataPoint = tuple[year:int,month:Month,value,anom:float]
   MeanData = tuple[accum:float,count:int]
+  Test = tuple[y:int]
  
 func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
   var idx = 0
