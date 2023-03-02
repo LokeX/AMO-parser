@@ -2,6 +2,7 @@ import httpClient
 import strutils
 import sequtils
 import times
+import sugar
 
 type 
   DataPoint = tuple[year:int,month:Month,value,anom:float]
@@ -28,9 +29,9 @@ func calcAnoms(dataPoints:seq[DataPoint]):seq[DataPoint] =
       monthlyMeansData[dataPoint.month].count.toFloat
     )
 
-func parseDataItems(data:string):seq[string] =
+func parseDataItems(data,id:string):seq[string] =
   let dataItems = data.splitWhitespace
-  for dataItem in dataItems[2..<dataItems.find("AMO")]:
+  for dataItem in dataItems[2..<dataItems.find(id)]:
     if dataItem[0] != '-': result.add dataItem
 
 func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
@@ -39,16 +40,15 @@ func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
       result[0].add dataItem.parseInt else:
       result[1].add dataItem.parseFloat
 
-func parseData(data:string): (seq[DataPoint],seq[int]) =
-  let (years,values) = data.parseDataItems.parseYearsAndValues
+func parseData(data,id:string): (seq[DataPoint],seq[int]) =
+  let (years,values) = data.parseDataItems(id).parseYearsAndValues
   (generateDataPoints(years,values).calcAnoms,years)
 
-func columnFormat(dataPoints:seq[DataPoint]):seq[string] =
-  dataPoints.mapIt(
-    ($it.month)[0..2]&" "&($it.year)&
-    ($it.anom)[0..5].indent(4)
-  )
-
+func columnFormat(dataPoints:seq[DataPoint]):seq[string] = collect: 
+  for dataPoint in dataPoints:
+    ($dataPoint.month)[0..2]&" "&($dataPoint.year)&
+    ($dataPoint.anom)[0..5].indent(4)
+  
 func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
   var idx = 0
   result.add chr(32).repeat(4).join&Month.mapIt(($it)[0..2].align(9)).join
@@ -69,11 +69,22 @@ proc output(path:string,lines:seq[string]) =
     txtFile.writeLine(line)
     echo line
 
-const url = "https://psl.noaa.gov/data/correlation/amon.us.long.mean.data"
-let 
-  (datapoints,years) = newHttpClient().getContent(url).parseData
-  puts = [
-    ("anomscol.txt",dataPoints.columnFormat),
-    ("anomsmatrix.txt",dataPoints.matrixFormat(years))
+proc inOut(inOuts:openArray[(string,string,string,string)]) =
+  for io in inOuts:
+    let 
+      (url,colFile,matrixFile,id) = io
+      (datapoints,years) = newHttpClient().getContent(url).parseData(id)
+      puts = [
+        (colFile,dataPoints.columnFormat),
+        (matrixFile,dataPoints.matrixFormat(years))
+      ]
+    for put in puts: output(put[0],put[1])
+
+const 
+  inOuts = [
+    ("https://psl.noaa.gov/data/correlation/amon.us.long.mean.data",
+    "amocol.txt","amomatrix.txt","AMO"),
+    ("https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data",
+    "ninocol.txt","ninomatrix.txt","NINA34")
   ]
-for put in puts: output(put[0],put[1])
+inOut(inOuts)
