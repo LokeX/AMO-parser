@@ -4,13 +4,12 @@ import sequtils
 import times
 import sugar
 
-const 
-  inOuts = [
-    ("https://psl.noaa.gov/data/correlation/amon.us.long.mean.data",
-    "amocol.txt","amomatrix.txt","AMO"),
-    ("https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data",
-    "ninocol.txt","ninomatrix.txt","NINA34")
-  ]
+const dataSets = [
+  ("https://psl.noaa.gov/data/correlation/amon.us.long.mean.data",
+  "amocol.txt","amomatrix.txt","AMO"),
+  ("https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data",
+  "ninocol.txt","ninomatrix.txt","NINA34")
+]
 
 type 
   DataPoint = tuple[year:int,month:Month,value,anom:float]
@@ -70,22 +69,20 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
     result.add line
   result.add '-'.repeat(result[^2].len).join
 
-proc output(path:string,lines:seq[string]) =
+proc output(parsedData:(string,seq[string])) =
+  let (path,lines) = parsedData
   var txtFile = open(path,fmWrite)
   defer: close(txtFile)
   for line in lines: 
     txtFile.writeLine(line)
     echo line
 
-proc inOut(inOuts:openArray[(string,string,string,string)]) =
-  for io in inOuts:
-    let 
-      (url,colFile,matrixFile,id) = io
-      (datapoints,years) = newHttpClient().getContent(url).parseData(id)
-      puts = [
-        (colFile,dataPoints.columnFormat),
-        (matrixFile,dataPoints.matrixFormat(years))
-      ]
-    for put in puts: output(put[0],put[1])
+proc processDataSet(dataSet:(string,string,string,string)):array[2,(string,seq[string])] =
+  let 
+    (url,colFile,matrixFile,id) = dataSet
+    (datapoints,years) = newHttpClient().getContent(url).parseData(id)
+  [(colFile,dataPoints.columnFormat),(matrixFile,dataPoints.matrixFormat(years))]  
 
-inOut(inOuts)
+for dataSet in dataSets:
+  for processedData in dataSet.processDataSet: 
+    output(processedData)
