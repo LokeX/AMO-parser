@@ -1,0 +1,8 @@
+https://psl.noaa.gov/data/correlation/amon.us.long.mean.data
+amocol.txt
+amomatrix.txt
+AMO
+https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data
+ninocol.txt
+ninomatrix.txt
+NINA34

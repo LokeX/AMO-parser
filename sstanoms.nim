@@ -3,13 +3,16 @@ import strutils
 import sequtils
 import times
 import sugar
+import os
 
-const dataSets = [
-  ("https://psl.noaa.gov/data/correlation/amon.us.long.mean.data",
-  "amocol.txt","amomatrix.txt","AMO"),
-  ("https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data",
-  "ninocol.txt","ninomatrix.txt","NINA34")
-]
+const 
+  defaultDataSetsCfgFile = "datasets.txt"
+  defaultDataSetsCfg = [
+    ("https://psl.noaa.gov/data/correlation/amon.us.long.mean.data",
+    "amocol.txt","amomatrix.txt","AMO"),
+    ("https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data",
+    "ninocol.txt","ninomatrix.txt","NINA34")
+  ]
 
 type 
   DataSet = tuple[url,colFile,matrixFile,id:string]
@@ -70,8 +73,16 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
     result.add line
   result.add '-'.repeat(result[^2].len).join
 
-proc output(processedData:(string,seq[string])) =
-  let (path,lines) = processedData
+func parseDataSetsCfg(setLines:seq[string]):seq[DataSet] =
+  var lines:seq[string]
+  for line in setLines:
+    lines.add line
+    if lines.len == 4: 
+      result.add (lines[0],lines[1],lines[2],lines[3])
+      lines.setLen(0)
+
+proc output(processedDataSet:(string,seq[string])) =
+  let (path,lines) = processedDataSet
   var txtFile = open(path,fmWrite)
   defer: close(txtFile)
   for line in lines: 
@@ -85,6 +96,29 @@ proc processDataSet(dataSet:DataSet):array[2,(string,seq[string])] =
     (dataSet.matrixFile,dataPoints.matrixFormat(years))
   ]  
 
-for dataSet in dataSets:
-  for processedData in dataSet.processDataSet: 
-    output(processedData)
+proc readDataSets(path:string):seq[DataSet] =
+  var setLines:seq[string]
+  try:
+    setLines = collect:
+      for line in lines(path): line
+    if setLines.len mod 4 != 0:
+      let errorMsg = "Invalid number of lines, reading file: "&path
+      raise newException(CatchableError, errorMsg)
+  except: 
+    echo getCurrentExceptionMsg()
+    echo "Using default dataSets"
+    return @defaultDataSetsCfg
+  setLines.parseDataSetsCfg
+
+proc cfgFile():string =
+  let msg = "Reading dataset configuration from file: "
+  if paramCount() == 1 and fileExists(paramStr(1).strip):
+    echo msg,paramStr(1)
+    return paramStr(1)
+  else:
+    echo msg,defaultDataSetsCfgFile
+    return defaultDataSetsCfgFile
+
+for dataSet in cfgFile().readDataSets:
+  for processedDataSet in dataSet.processDataSet: 
+    output(processedDataSet)
