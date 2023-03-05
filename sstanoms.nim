@@ -19,6 +19,9 @@ type
   DataPoint = tuple[year:int,month:Month,value,anom:float]
   MeanData = tuple[accum:float,count:int]
  
+func dataSetLines(dataSet:DataSet):string = 
+  for line in dataSet.fields: result.add line&"\n"
+
 func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
   var idx = 0
   for year in years:
@@ -43,7 +46,7 @@ func calcAnoms(dataPoints:seq[DataPoint]):seq[DataPoint] =
 func parseDataItems(data,id:string):seq[string] =
   let dataItems = data.splitWhitespace
   for dataItem in dataItems[2..<dataItems.find(id)]:
-    if dataItem[0] != '-': result.add dataItem
+    if dataItem[0..2] != "-99": result.add dataItem
 
 func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
   for idx,dataItem in dataItems:
@@ -68,18 +71,17 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
     for month in Month:
       let anom = dataPoints[idx].anom
       line = line&($anom)[0..(if anom < 0: 6 else: 5)].align(9)
-      if idx == dataPoints.high: break
-      inc idx
+      if idx < dataPoints.high: inc idx else: break
     result.add line
   result.add '-'.repeat(result[^2].len).join
 
-func parseDataSetsCfg(setLines:seq[string]):seq[DataSet] =
-  var lines:seq[string]
-  for line in setLines:
-    lines.add line
-    if lines.len == 4: 
-      result.add (lines[0],lines[1],lines[2],lines[3])
-      lines.setLen(0)
+func parseDataSetsCfg(allLines:seq[string]):seq[DataSet] =
+  var dataSetLines:seq[string]
+  for line in allLines:
+    dataSetLines.add line
+    if dataSetLines.len == 4: 
+      result.add (dataSetLines[0],dataSetLines[1],dataSetLines[2],dataSetLines[3])
+      dataSetLines.setLen(0)
 
 proc output(processedDataSet:(string,seq[string])) =
   let (path,lines) = processedDataSet
@@ -97,28 +99,54 @@ proc processDataSet(dataSet:DataSet):array[2,(string,seq[string])] =
   ]  
 
 proc readDataSets(path:string):seq[DataSet] =
-  var setLines:seq[string]
+  var dataSetLines:seq[string]
   try:
-    setLines = collect:
-      for line in lines(path): line
-    if setLines.len mod 4 != 0:
+    for line in lines(path): dataSetLines.add line
+    if dataSetLines.len mod 4 != 0:
       let errorMsg = "Invalid number of lines, reading file: "&path
       raise newException(CatchableError, errorMsg)
   except: 
     echo getCurrentExceptionMsg()
     echo "Using default dataSets"
     return @defaultDataSetsCfg
-  setLines.parseDataSetsCfg
+  dataSetLines.parseDataSetsCfg
+
+iterator params():string =
+  for idx in 1..paramCount():
+    yield paramStr(idx).toLower
+
+proc paramStrExists(str:string):bool = 
+  for prm in params():
+    if prm == str: return true
+
+proc paramFile():string = 
+  for fileName in params():
+    if fileExists(fileName): return fileName
 
 proc cfgFile():string =
-  let msg = "Reading dataset configuration from file: "
-  if paramCount() == 1 and fileExists(paramStr(1).strip):
-    echo msg,paramStr(1)
-    return paramStr(1)
+  let 
+    msg = "Reading dataset configuration from file: "
+    fileName = paramFile()
+  if fileName.len > 0:
+    echo msg,fileName
+    return fileName
   else:
     echo msg,defaultDataSetsCfgFile
     return defaultDataSetsCfgFile
 
-for dataSet in cfgFile().readDataSets:
-  for processedDataSet in dataSet.processDataSet: 
-    output(processedDataSet)
+proc handleParams() =
+  if paramStrExists("-gencfg"):
+    writeFile(defaultDataSetsCfgFile,defaultDataSetsCfg.mapIt(it.dataSetLines).join)
+    echo "Generated default config file: ",defaultDataSetsCfgFile
+    for line in lines(defaultDataSetsCfgFile): echo line
+  else:
+    for prm in params(): echo "Unknown parameter: ",prm
+    echo "Usage:\n\nsstanoms -gencfg"
+    echo "- writes default datasets cfg to: "&defaultDataSetsCfgFile
+    echo "\nsstanoms [file.name]\n- reads datasets cfg from [file.name]\n"
+
+let configFile = cfgFile()
+if paramCount() > 0 and configFile == defaultDataSetsCfgFile: handleParams() else:
+  for dataSet in configFile.readDataSets:
+    for processedDataSet in dataSet.processDataSet: 
+      output(processedDataSet)
