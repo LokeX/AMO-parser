@@ -6,6 +6,7 @@ import sugar
 import os
 
 const 
+  formats = ["column","matrix"]
   defaultDataSetsCfgFile = "datasets.txt"
   defaultDataSetsCfg = [
     ("https://psl.noaa.gov/data/correlation/amon.us.long.mean.data",
@@ -21,6 +22,9 @@ type
  
 func dataSetLines(dataSet:DataSet):string = 
   for line in dataSet.fields: result.add line&"\n"
+
+func defaultDataSetsLines():string = 
+  defaultDataSetsCfg.mapIt(it.dataSetLines).join
 
 func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
   var idx = 0
@@ -62,7 +66,7 @@ func columnFormat(dataPoints:seq[DataPoint]):seq[string] = collect:
   for dataPoint in dataPoints:
     ($dataPoint.month)[0..2]&" "&($dataPoint.year)&
     ($dataPoint.anom)[0..5].indent(4)
-  
+
 func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
   var idx = 0
   result.add chr(32).repeat(4).join&Month.mapIt(($it)[0..2].align(9)).join
@@ -73,7 +77,6 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
       line = line&($anom)[0..(if anom < 0: 6 else: 5)].align(9)
       if idx < dataPoints.high: inc idx else: break
     result.add line
-  result.add '-'.repeat(result[^2].len).join
 
 func parseDataSetsCfg(allLines:seq[string]):seq[DataSet] =
   var dataSetLines:seq[string]
@@ -84,15 +87,15 @@ func parseDataSetsCfg(allLines:seq[string]):seq[DataSet] =
       dataSetLines.setLen(0)
 
 proc output(processedDataSet:(string,seq[string])) =
-  let (path,lines) = processedDataSet
+  let (path,setLines) = processedDataSet
   var txtFile = open(path,fmWrite)
   defer: close(txtFile)
-  for line in lines: 
-    txtFile.writeLine(line)
-    echo line
+  for line in setLines: txtFile.writeLine(line)
 
 proc processDataSet(dataSet:DataSet):array[2,(string,seq[string])] =
+  echo "Fetching ",dataSet.id," dataset from:\nUrl: ",dataSet.url
   let (datapoints,years) = newHttpClient().getContent(dataSet.url).parseData(dataSet.id)
+  echo "Processing ",dataSet.id," dataset"
   result = [
     (dataSet.colFile,dataPoints.columnFormat),
     (dataSet.matrixFile,dataPoints.matrixFormat(years))
@@ -111,42 +114,23 @@ proc readDataSets(path:string):seq[DataSet] =
     return @defaultDataSetsCfg
   dataSetLines.parseDataSetsCfg
 
+proc generateCfgFile() =
+  writeFile(defaultDataSetsCfgFile,defaultDataSetsLines())
+  echo "Generated default config file: ",defaultDataSetsCfgFile
+  for line in lines(defaultDataSetsCfgFile): echo line
+
 iterator params():string =
-  for idx in 1..paramCount():
-    yield paramStr(idx).toLower
+  for idx in 1..paramCount(): yield paramStr(idx).toLower
 
-proc paramStrExists(str:string):bool = 
-  for prm in params():
-    if prm == str: return true
-
-proc paramFile():string = 
-  for fileName in params():
-    if fileExists(fileName): return fileName
-
-proc cfgFile():string =
-  let 
-    msg = "Reading dataset configuration from file: "
-    fileName = paramFile()
-  if fileName.len > 0:
-    echo msg,fileName
-    return fileName
-  else:
-    echo msg,defaultDataSetsCfgFile
-    return defaultDataSetsCfgFile
-
-proc handleParams() =
-  if paramStrExists("-gencfg"):
-    writeFile(defaultDataSetsCfgFile,defaultDataSetsCfg.mapIt(it.dataSetLines).join)
-    echo "Generated default config file: ",defaultDataSetsCfgFile
-    for line in lines(defaultDataSetsCfgFile): echo line
-  else:
-    for prm in params(): echo "Unknown parameter: ",prm
-    echo "Usage:\n\nsstanoms -gencfg"
-    echo "- writes default datasets cfg to: "&defaultDataSetsCfgFile
-    echo "\nsstanoms [file.name]\n- reads datasets cfg from [file.name]\n"
-
-let configFile = cfgFile()
-if paramCount() > 0 and configFile == defaultDataSetsCfgFile: handleParams() else:
-  for dataSet in configFile.readDataSets:
-    for processedDataSet in dataSet.processDataSet: 
-      output(processedDataSet)
+var configFile = defaultDataSetsCfgFile
+for param in params():
+  if fileExists(param): configFile = param else: 
+    case param 
+      of "-gencfg": generateCfgFile()
+      else: 
+        echo "Invalid parameter: ",param
+        echo "valid parameters: [file.name] [-gencfg]"
+for dataSet in configFile.readDataSets:
+  for idx,processedDataSet in dataSet.processDataSet: 
+    output(processedDataSet)
+    echo "Wrote ",dataSet.id," dataset as ",formats[idx]," to file: ",processedDataSet[0]
