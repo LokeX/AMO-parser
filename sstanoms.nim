@@ -9,21 +9,19 @@ const
   formats = ["column","matrix"]
   defaultDataSetsCfgFile = "datasets.txt"
   defaultDataSetsCfg = [
-    ("https://psl.noaa.gov/data/correlation/amon.us.long.mean.data",
-    "amocol.txt","amomatrix.txt","AMO"),
-    ("https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data",
-    "ninocol.txt","ninomatrix.txt","NINA34")
+    ("https://psl.noaa.gov/data/correlation/amon.us.long.mean.data","AMO"),
+    ("https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data","NINA34")
   ]
 
 type 
-  DataSet = tuple[url,colFile,matrixFile,id:string]
+  DataSet = tuple[url,id:string]
   DataPoint = tuple[year:int,month:Month,value,anom:float]
   MeanData = tuple[accum:float,count:int]
  
 func dataSetLines(dataSet:DataSet):string = 
   for line in dataSet.fields: result.add line&"\n"
 
-func defaultDataSetsLines():string = 
+func defaultDataSetsCfgLines():string = 
   defaultDataSetsCfg.mapIt(it.dataSetLines).join
 
 func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
@@ -71,66 +69,32 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
   var idx = 0
   result.add chr(32).repeat(4).join&Month.mapIt(($it)[0..2].align(9)).join
   for year in years:
-    var line = $year
+    result.add $year
     for month in Month:
       let anom = dataPoints[idx].anom
-      line = line&($anom)[0..(if anom < 0: 6 else: 5)].align(9)
+      result[^1] = result[^1]&($anom)[0..(if anom < 0: 6 else: 5)].align(9)
       if idx < dataPoints.high: inc idx else: break
-    result.add line
 
-func parseDataSetsCfg(allLines:seq[string]):seq[DataSet] =
-  var dataSetLines:seq[string]
-  for line in allLines:
-    dataSetLines.add line
-    if dataSetLines.len == 4: 
-      result.add (dataSetLines[0],dataSetLines[1],dataSetLines[2],dataSetLines[3])
-      dataSetLines.setLen(0)
-
-proc output(processedDataSet:(string,seq[string])) =
-  let (path,setLines) = processedDataSet
-  var txtFile = open(path,fmWrite)
-  defer: close(txtFile)
-  for line in setLines: txtFile.writeLine(line)
-
-proc processDataSet(dataSet:DataSet):array[2,(string,seq[string])] =
-  echo "Fetching ",dataSet.id," dataset from:\nUrl: ",dataSet.url
+proc fetchAndProces(dataSet:DataSet):array[2,seq[string]] =
   let (datapoints,years) = newHttpClient().getContent(dataSet.url).parseData(dataSet.id)
-  echo "Processing ",dataSet.id," dataset"
-  result = [
-    (dataSet.colFile,dataPoints.columnFormat),
-    (dataSet.matrixFile,dataPoints.matrixFormat(years))
-  ]  
+  [dataPoints.columnFormat,dataPoints.matrixFormat(years)]  
 
 proc readDataSets(path:string):seq[DataSet] =
+  if not fileExists(path): writeFile(defaultDataSetsCfgFile,defaultDataSetsCfgLines())
   var dataSetLines:seq[string]
-  try:
-    for line in lines(path): dataSetLines.add line
-    if dataSetLines.len mod 4 != 0:
-      let errorMsg = "Invalid number of lines, reading file: "&path
-      raise newException(CatchableError, errorMsg)
-  except: 
-    echo getCurrentExceptionMsg()
-    echo "Using default dataSets"
+  for line in lines(path): dataSetLines.add line
+  if dataSetLines.len mod 2 != 0:
+    echo "Invalid number of lines in config file: "&path&"\n - Using default dataSets"
     return @defaultDataSetsCfg
-  dataSetLines.parseDataSetsCfg
-
-proc generateCfgFile() =
-  writeFile(defaultDataSetsCfgFile,defaultDataSetsLines())
-  echo "Generated default config file: ",defaultDataSetsCfgFile
-  for line in lines(defaultDataSetsCfgFile): echo line
-
-iterator params():string =
-  for idx in 1..paramCount(): yield paramStr(idx).toLower
+  for idx in 0..dataSetLines.high:
+    if idx mod 2 == 1: result.add (dataSetLines[idx-1],dataSetLines[idx])
 
 var configFile = defaultDataSetsCfgFile
-for param in params():
-  if fileExists(param): configFile = param else: 
-    case param 
-      of "-gencfg": generateCfgFile()
-      else: 
-        echo "Invalid parameter: ",param
-        echo "valid parameters: [file.name] [-gencfg]"
-for dataSet in configFile.readDataSets:
-  for idx,processedDataSet in dataSet.processDataSet: 
-    output(processedDataSet)
-    echo "Wrote ",dataSet.id," dataset as ",formats[idx]," to file: ",processedDataSet[0]
+for param in commandLineParams():
+  if param.fileExists(): configFile = param
+for dataSet in readDataSets(configFile):
+  echo "Fetching and processing ",dataSet.id," dataset from:\nUrl: ",dataSet.url
+  for format,fileLines in dataSet.fetchAndProces: 
+    let path = dataSet.id.toLower&formats[format]&".txt"
+    writeFile(path,fileLines.join("\n"))
+    echo "Wrote ",dataSet.id," dataset as ",formats[format]," to file: ",path
