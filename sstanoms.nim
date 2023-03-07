@@ -1,9 +1,9 @@
-import httpClient
+from times import Month
+from httpClient import newHttpClient,getContent
+from os import fileExists,commandLineParams
+from sequtils import mapIt
+from sugar import collect
 import strutils
-import sequtils
-import times
-import sugar
-import os
 
 const 
   formats = ["column","matrix"]
@@ -31,13 +31,13 @@ func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
       result.add (year,month,values[idx],0.0)
       if idx < values.high: inc idx else: return
 
-func parseMonthlyMeansData(dataPoints:seq[DataPoint]):array[Month,MeanData] =
+func calcMonthlyMeansData(dataPoints:seq[DataPoint]):array[Month,MeanData] =
   for datapoint in datapoints:
     result[datapoint.month].accum += datapoint.value
     result[datapoint.month].count += 1
 
 func calcAnoms(dataPoints:seq[DataPoint]):seq[DataPoint] =
-  let monthlyMeansData = dataPoints.parseMonthlyMeansData
+  let monthlyMeansData = dataPoints.calcMonthlyMeansData
   for dataPoint in dataPoints:
     result.add dataPoint
     result[^1].anom = dataPoint.value-(
@@ -56,10 +56,6 @@ func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
       result[0].add dataItem.parseInt else:
       result[1].add dataItem.parseFloat
 
-func parseData(data,id:string): (seq[DataPoint],seq[int]) =
-  let (years,values) = data.parseDataItems(id).parseYearsAndValues
-  (generateDataPoints(years,values).calcAnoms,years)
-
 func columnFormat(dataPoints:seq[DataPoint]):seq[string] = collect: 
   for dataPoint in dataPoints:
     ($dataPoint.month)[0..2]&" "&($dataPoint.year)&
@@ -76,7 +72,10 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
       if idx < dataPoints.high: inc idx else: break
 
 proc fetchAndProces(dataSet:DataSet):array[2,seq[string]] =
-  let (datapoints,years) = newHttpClient().getContent(dataSet.url).parseData(dataSet.id)
+  let 
+    data = newHttpClient().getContent(dataSet.url)
+    (years,values) = data.parseDataItems(dataSet.id).parseYearsAndValues
+    dataPoints = generateDataPoints(years,values).calcAnoms
   [dataPoints.columnFormat,dataPoints.matrixFormat(years)]  
 
 proc readDataSets(path:string):seq[DataSet] =
@@ -84,8 +83,9 @@ proc readDataSets(path:string):seq[DataSet] =
   var dataSetLines:seq[string]
   for line in lines(path): dataSetLines.add line
   if dataSetLines.len mod 2 != 0:
-    echo "Invalid number of lines in config file: "&path&"\n - Using default dataSets"
-    return @defaultDataSetsCfg
+    echo "Invalid number of lines in config file: "&path&"\n - Resetting to default"
+    if path == defaultDataSetsCfgFile: writeFile(path,defaultDataSetsCfgLines())
+    return @defaultDataSetsCfg 
   for idx in 0..dataSetLines.high:
     if idx mod 2 == 1: result.add (dataSetLines[idx-1],dataSetLines[idx])
 
