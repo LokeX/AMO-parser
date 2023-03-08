@@ -87,7 +87,7 @@ proc parsePeriod(param:string,years:seq[int]):(int,int) =
     echo "Using period: ",result
 
 proc normalizationPeriod(years:seq[int]):(int,int) =
-  result = (years[0],years[^2])
+  result = (years[0],years[^1])
   for param in commandLineParams():
     if param.startsWith("-norm:") and param.len > 6:
       let (startYear,endYear) = param.parsePeriod(years)
