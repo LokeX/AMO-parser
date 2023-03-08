@@ -80,14 +80,14 @@ func hasValid(period,years:seq[int]):bool =
 proc parsePeriod(param:string,years:seq[int]):(int,int) =
   try: 
     let period = param[6..param.high].split('-').mapIt(it.parseInt) 
-    if period.hasValid(years): result = (period[0],period[^1]) else: 
+    if period.hasValid(years): result = (period[0],period[1]-1) else: 
       raise newException(CatchableError,"")
   except: 
     echo "Invalid normalization period parameter. Usage: -norm:startYear-endYear"
     echo "Using period: ",result
 
 proc normalizationPeriod(years:seq[int]):(int,int) =
-  result = (years[0],years[^1])
+  result = (years[0],years[^2])
   for param in commandLineParams():
     if param.startsWith("-norm:") and param.len > 6:
       let (startYear,endYear) = param.parsePeriod(years)
