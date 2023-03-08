@@ -1,7 +1,7 @@
 from times import Month
 from httpClient import newHttpClient,getContent
 from os import fileExists,commandLineParams
-from sequtils import mapIt
+from sequtils import mapIt,toSeq
 from sugar import collect
 import strutils
 
@@ -9,12 +9,12 @@ const
   formats = ["column","matrix"]
   defaultDataSetsCfgFile = "datasets.txt"
   defaultDataSetsCfg = [
-    ("https://psl.noaa.gov/data/correlation/amon.us.long.mean.data","AMO"),
-    ("https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data","NINA34")
+    ("AMO","https://psl.noaa.gov/data/correlation/amon.us.long.mean.data"),
+    ("NINA34","https://psl.noaa.gov/gcos_wgsp/Timeseries/Data/nino34.long.data")
   ]
 
 type 
-  DataSet = tuple[url,id:string]
+  DataSet = tuple[id,url:string]
   DataPoint = tuple[year:int,month:Month,value,anom:float]
   MeanData = tuple[accum:float,count:int]
  
@@ -31,13 +31,14 @@ func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
       result.add (year,month,values[idx],0.0)
       if idx < values.high: inc idx else: return
 
-func calcMonthlyMeansData(dataPoints:seq[DataPoint]):array[Month,MeanData] =
+func calcMonthlyMeansData(dataPoints:seq[DataPoint],period:(int,int)):array[Month,MeanData] =
   for datapoint in datapoints:
-    result[datapoint.month].accum += datapoint.value
-    result[datapoint.month].count += 1
+    if datapoint.year >= period[0] and datapoint.year <= period[1]:
+      result[datapoint.month].accum += datapoint.value
+      result[datapoint.month].count += 1
 
-func calcAnoms(dataPoints:seq[DataPoint]):seq[DataPoint] =
-  let monthlyMeansData = dataPoints.calcMonthlyMeansData
+func calcAnoms(dataPoints:seq[DataPoint],period:(int,int)):seq[DataPoint] =
+  let monthlyMeansData = dataPoints.calcMonthlyMeansData(period)
   for dataPoint in dataPoints:
     result.add dataPoint
     result[^1].anom = dataPoint.value-(
@@ -45,9 +46,11 @@ func calcAnoms(dataPoints:seq[DataPoint]):seq[DataPoint] =
       monthlyMeansData[dataPoint.month].count.toFloat
     )
 
-func parseDataItems(data,id:string):seq[string] =
-  let dataItems = data.splitWhitespace
-  for dataItem in dataItems[2..<dataItems.find(id)]:
+func parseDataItems(data,id:string,skip:int):seq[string] =
+  let 
+    dataItems = data.splitWhitespace
+    start = if skip < dataItems.high: skip else: 0
+  for dataItem in dataItems[start..<dataItems.find(id)]:
     if dataItem[0..2] != "-99": result.add dataItem
 
 func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
@@ -71,11 +74,38 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
       result[^1] = result[^1]&($anom)[0..(if anom < 0: 6 else: 5)].align(9)
       if idx < dataPoints.high: inc idx else: break
 
+func hasValid(period,years:seq[int]):bool =
+  period.len > 1 and period[0] < period[1] and period[0] in years and period[1] in years 
+
+proc parsePeriod(param:string,years:seq[int]):(int,int) =
+  try: 
+    let period = param[6..param.high].split('-').mapIt(it.parseInt) 
+    if period.hasValid(years): result = (period[0],period[^1]) else: 
+      raise newException(CatchableError,"")
+  except: 
+    echo "Invalid normalization period parameter. Usage: -norm:startYear-endYear"
+    echo "Using period: ",result
+
+proc normalizationPeriod(years:seq[int]):(int,int) =
+  result = (years[0],years[^1])
+  for param in commandLineParams():
+    if param.startsWith("-norm:") and param.len > 6:
+      let (startYear,endYear) = param.parsePeriod(years)
+      if endYear > startYear: return (startYear,endYear)
+
+proc skip(default:int):int =
+  result = default
+  for param in commandLineParams():
+    if param.startsWith("-skip:"):
+      try: result = param[6..param.high].parseInt except: 
+        echo "Invalid skip parameter - using default: ",result
+        return
+
 proc fetchAndProces(dataSet:DataSet):array[2,seq[string]] =
   let 
     data = newHttpClient().getContent(dataSet.url)
-    (years,values) = data.parseDataItems(dataSet.id).parseYearsAndValues
-    dataPoints = generateDataPoints(years,values).calcAnoms
+    (years,values) = data.parseDataItems(dataSet.id,skip(2)).parseYearsAndValues
+    dataPoints = generateDataPoints(years,values).calcAnoms(years.normalizationPeriod)
   [dataPoints.columnFormat,dataPoints.matrixFormat(years)]  
 
 proc readDataSets(path:string):seq[DataSet] =
