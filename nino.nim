@@ -14,7 +14,7 @@ func ninoSignals(vals:openArray[float]):seq[int] =
   result.add signalSwitch(0,vals[0].ninoSignal)
   for val in vals[1..vals.high]: result.add signalSwitch(result[^1],val.ninoSignal)
 
-iterator inReverse[T](x:openArray[T]):T =
+iterator inReverse[T](x:openArray[T]):T {.inline.} =
   var idx = x.high
   while idx >= x.low:
     yield x[idx]
@@ -65,6 +65,5 @@ func fgColor(designation:Designation):ForegroundColor =
 stdout.write(months.indent(4))
 for indexYear,yearLabel in years:
   stdout.write("\n"&yearLabel.indent(4))
-  for data in monthlyData.monthsIn(indexYear):
-    let (value,ninoDesignation) = data
+  for (value,ninoDesignation) in monthlyData.monthsIn(indexYear):
     stdout.styledWrite(ninoDesignation.fgColor,value.formatFloat(ffDecimal,4).align(9))
