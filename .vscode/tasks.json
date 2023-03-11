@@ -4,7 +4,7 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "Amo",
+      "label": "Nino",
       "type" :"process",
       "command": "nim",
       "args": ["c", "-r", "-d:ssl","sstanoms.nim"],

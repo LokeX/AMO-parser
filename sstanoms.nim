@@ -70,8 +70,7 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
   for year in years:
     result.add $year
     for month in Month:
-      let anom = dataPoints[idx].anom
-      result[^1] = result[^1]&($anom)[0..(if anom < 0: 6 else: 5)].align(9)
+      result[^1] = result[^1]&dataPoints[idx].anom.formatFloat(ffDecimal,4).align(9)
       if idx < dataPoints.high: inc idx else: break
 
 func hasValid(period,years:seq[int]):bool =
@@ -119,12 +118,14 @@ proc readDataSets(path:string):seq[DataSet] =
   for idx in 0..dataSetLines.high:
     if idx mod 2 == 1: result.add (dataSetLines[idx-1],dataSetLines[idx])
 
-var configFile = defaultDataSetsCfgFile
-for param in commandLineParams():
-  if param.fileExists(): configFile = param
-for dataSet in readDataSets(configFile):
+proc configFile: string =
+  for param in commandLineParams(): 
+    if param.fileExists(): return param
+  result = defaultDataSetsCfgFile
+
+for dataSet in readDataSets(configFile()):
   echo "Fetching and processing ",dataSet.id," dataset from:\nUrl: ",dataSet.url
   for format,fileLines in dataSet.fetchAndProces: 
     let path = dataSet.id.toLower&formats[format]&".txt"
-    writeFile(path,fileLines.join("\n"))
+    writeFile(path,fileLines.join("\r\n"))
     echo "Wrote ",dataSet.id," dataset as ",formats[format]," to file: ",path
