@@ -1,43 +1,48 @@
+from algorithm import reverse
 import strutils
-import algorithm
+import sequtils
 
-type 
-  Designation = enum laNina,elNino,neutral
-  DataPoint = tuple[value:string,designation:Designation]
+type Designation = enum laNina,elNino,neutral
 
 func ninoSignal(val:float):int =
   if val >= 0.5: result = 1 elif val <= -0.5: result = -1 else: result = 0
 
-func signalToggle(oldSignal,newSignal:int):int =
+func signalSwitch(oldSignal,newSignal:int):int =
   if newSignal == 0: result = 0 else: result = oldSignal+newSignal
 
-func ninoSignals(vals:seq[float]):seq[int] =
-  result.add signalToggle(0,vals[0].ninoSignal)
-  for val in vals[1..vals.high]: result.add signalToggle(result[^1],val.ninoSignal)
+func ninoSignals(vals:openArray[float]):seq[int] =
+  result.add signalSwitch(0,vals[0].ninoSignal)
+  for val in vals[1..vals.high]: result.add signalSwitch(result[^1],val.ninoSignal)
 
-func ninoDesignations(signals:seq[int]):seq[Designation] =
-  var tick:int
-  for idx in countdown(signals.high,signals.low):
-    if signals[idx] <= -5 or signals[idx] >= 5: 
-      tick = signals[idx]
-    elif signals[idx] == 0: 
-      tick = 0
-    if signals[idx] < 0 and tick < 0:
+iterator inReverse[T](x:openArray[T]):T =
+  var idx = x.high
+  while idx >= x.low:
+    yield x[idx]
+    dec idx
+
+func ninoDesignations(signals:openArray[int]):seq[Designation] =
+  var switch:int
+  for signal in signals.inReverse:
+    if signal <= -5 or signal >= 5: 
+      switch = signal
+    elif signal == 0: 
+      switch = 0
+    if signal < 0 and switch < 0:
       result.add laNina
-    elif signals[idx] > 0 and tick > 0:
+    elif signal > 0 and switch > 0:
       result.add elNino
     else: result.add neutral
-  result.reverse
+  reverse result
 
-func parseVals(fileLines:seq[string]):seq[float] =
+func parseVals(fileLines:openArray[string]):seq[float] =
   for line in fileLines[1..fileLines.high]:
     for valStr in line[4..line.high].splitWhitespace: result.add valStr.parseFloat
 
-func generateDataPoints(vals:seq[float],designations:seq[Designation]):seq[DataPoint] =
-  for i,val in vals: result.add (val.formatFloat(ffDecimal,4).align(9),designations[i])
-
-func generateYears(fileLines:seq[string]):seq[string] =
-  for line in fileLines[1..fileLines.high]: result.add line[0..3].strip
+func monthsIn[T](months:openArray[T],indexYear:int):seq[T] =
+  let 
+    startMonth = indexYear*12
+    endMonth = if startMonth+11 > months.high: months.high else: startMonth+11
+  months[startMonth..endMonth]
 
 proc readFileLines(path:string):seq[string] =
   for line in lines(path): result.add line
@@ -45,22 +50,21 @@ proc readFileLines(path:string):seq[string] =
 let 
   fileLines = readFileLines("nina34matrix.txt")
   vals = fileLines.parseVals
-  designations = vals.ninoSignals.ninoDesignations
-  dataPoints = generateDataPoints(vals,designations)
+  monthlyData = zip(vals,vals.ninoSignals.ninoDesignations)
   months = fileLines[0]
-  years = fileLines.generateYears
+  years = fileLines[1..fileLines.high].mapIt(it[0..3])
 
 import terminal #Last possible moment: the import bothers vs-code intellisense - just weird
 
-func ninoColor(designation:Designation):ForegroundColor =
+func fgColor(designation:Designation):ForegroundColor =
   case designation
     of elNino: fgRed
     of laNina: fgBlue
     of neutral: fgWhite
 
 stdout.write(months.indent(4))
-for i,year in years:
-  let offset = i*12
-  stdout.write("\n"&year.indent(4))
-  for month in dataPoints[offset..<offset+12]:
-    stdout.styledWrite(month.designation.ninoColor,month.value)
+for indexYear,yearLabel in years:
+  stdout.write("\n"&yearLabel.indent(4))
+  for data in monthlyData.monthsIn(indexYear):
+    let (value,ninoDesignation) = data
+    stdout.styledWrite(ninoDesignation.fgColor,value.formatFloat(ffDecimal,4).align(9))
