@@ -11,8 +11,8 @@ func signalSwitch(oldSignal,newSignal:int):int =
   if newSignal == 0: result = 0 else: result = oldSignal+newSignal
 
 func ninoSignals(vals:openArray[float]):seq[int] =
-  result.add signalSwitch(0,vals[0].ninoSignal)
-  for val in vals[1..vals.high]: result.add signalSwitch(result[^1],val.ninoSignal)
+  result.add 0.signalSwitch vals[0].ninoSignal
+  for val in vals[1..vals.high]: result.add result[^1].signalSwitch val.ninoSignal
 
 iterator inReverse[T](x:openArray[T]):T {.inline.} =
   var idx = x.high
@@ -50,9 +50,9 @@ proc readFileLines(path:string):seq[string] =
   for line in lines path: result.add line
 
 let 
-  fileLines = readFileLines("nina34matrix.txt")
+  fileLines = readFileLines "nina34matrix.txt"
   (years,vals) = parse fileLines
-  monthlyData = zip(vals,vals.ninoSignals.ninoDesignations)
+  monthlyData = vals.zip vals.ninoSignals.ninoDesignations
   months = fileLines[0]
 
 import terminal #Last possible moment: the import bothers vs-code intellisense - just weird
@@ -63,8 +63,8 @@ func fgColor(designation:Designation):ForegroundColor =
     of laNina: fgBlue
     of neutral: fgWhite
 
-stdout.write(months.indent 4)
+stdout.write months.indent 4
 for indexYear,yearLabel in years:
-  stdout.write("\n"&yearLabel.indent 4)
+  stdout.write "\n"&yearLabel.indent 4
   for (value,ninoDesignation) in monthlyData.monthsIn indexYear:
-    stdout.styledWrite(ninoDesignation.fgColor,value.formatFloat(ffDecimal,4).align 9)
+    stdout.styledWrite ninoDesignation.fgColor,value.formatFloat(ffDecimal,4).align 9
