@@ -2,7 +2,6 @@ from times import Month
 from httpClient import newHttpClient,getContent
 from os import fileExists,commandLineParams
 from sequtils import mapIt,toSeq
-from sugar import collect
 import strutils
 
 const 
@@ -59,13 +58,17 @@ func parseYearsAndValues(dataItems:seq[string]):(seq[int],seq[float]) =
       result[0].add dataItem.parseInt else:
       result[1].add dataItem.parseFloat
 
-func columnFormat(dataPoints:seq[DataPoint]):seq[string] = collect: 
+func columnFormat(dataPoints:seq[DataPoint],header:string):seq[string] =
+  result.add header
   for dataPoint in dataPoints:
-    ($dataPoint.month)[0..2]&" "&($dataPoint.year)&
-    ($dataPoint.anom)[0..5].indent(4)
+    result.add (
+      ($dataPoint.month)[0..2]&" "&($dataPoint.year)&
+      dataPoint.anom.formatFloat(ffDecimal,4)
+    )
 
-func matrixFormat(dataPoints:seq[DataPoint],years:seq[int]):seq[string] =
+func matrixFormat(dataPoints:seq[DataPoint],years:seq[int],header:string):seq[string] =
   var idx = 0
+  result.add header
   result.add chr(32).repeat(4).join&Month.mapIt(($it)[0..2].align(9)).join
   for year in years:
     result.add $year
@@ -79,7 +82,7 @@ func hasValid(period,years:seq[int]):bool =
 proc parsePeriod(param:string,years:seq[int]):(int,int) =
   try: 
     let period = param[6..param.high].split('-').mapIt(it.parseInt) 
-    if period.hasValid(years): result = (period[0],period[1]-1) else: 
+    if period.hasValid(years): result = (period[0],period[1]) else: 
       raise newException(CatchableError,"")
   except: 
     echo "Invalid normalization period parameter. Usage: -norm:startYear-endYear"
@@ -90,7 +93,9 @@ proc normalizationPeriod(years:seq[int]):(int,int) =
   for param in commandLineParams():
     if param.startsWith("-norm:") and param.len > 6:
       let (startYear,endYear) = param.parsePeriod(years)
-      if endYear > startYear: return (startYear,endYear)
+      if endYear > startYear: result = (startYear,endYear)
+      break
+  echo "Normalization period: ",result[0],"-",result[1]
 
 proc skip(default:int):int =
   result = default
@@ -100,12 +105,16 @@ proc skip(default:int):int =
         echo "Invalid skip parameter - using default: ",result
         return
 
+func periodLabel(period:(int,int)):string =
+  "Normalized to period: "&($period[0])&"-"&($period[1])&" - inclusive"
+
 proc fetchAndProces(dataSet:DataSet):array[2,seq[string]] =
   let 
     data = newHttpClient().getContent(dataSet.url)
     (years,values) = data.parseDataItems(dataSet.id,skip(2)).parseYearsAndValues
+    period = years.normalizationPeriod.periodLabel
     dataPoints = generateDataPoints(years,values).calcAnoms(years.normalizationPeriod)
-  [dataPoints.columnFormat,dataPoints.matrixFormat(years)]  
+  [dataPoints.columnFormat(period),dataPoints.matrixFormat(years,period)]  
 
 proc readDataSets(path:string):seq[DataSet] =
   if not fileExists(path): writeFile(defaultDataSetsCfgFile,defaultDataSetsCfgLines())
