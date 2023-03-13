@@ -41,13 +41,12 @@ func ninoDesignations(signals:openArray[int]):seq[Designation] =
     else: result.add neutral
   reverse result
 
-func parse(fileLines:openArray[string]):(string,string,seq[string],seq[float]) =
-  result[0] = fileLines[0]
-  result[1] = fileLines[1]
+func parse(fileLines:openArray[string]):(string,seq[string],seq[float]) =
+  result[0] = fileLines[0]&"\n"&fileLines[1]
   for line in fileLines[2..fileLines.high]:
-    result[2].add line[0..3]
+    result[1].add line[0..3]
     for valStr in line[4..line.high].splitWhitespace: 
-      result[3].add valStr.parseFloat
+      result[2].add valStr.parseFloat
 
 func monthsIn[T](months:openArray[T],indexYear:int):seq[T] =
   let 
@@ -59,9 +58,10 @@ proc fileLines(path:string):seq[string] =
   for line in lines path: result.add line
 
 let 
-  (period,months,years,values) = parse fileLines "nina34matrix.txt"
+  (labels,years,values) = parse fileLines "nina34matrix.txt"
   monthlyData = zip(values,values.ninoSignals.ninoDesignations)
 
+#Importing the terminal module makes vs-code intellisense go weird, so we delay to here
 from terminal import ForegroundColor,styledWrite
 
 func fgColor(designation:Designation):ForegroundColor =
@@ -70,8 +70,8 @@ func fgColor(designation:Designation):ForegroundColor =
     of laNina: fgBlue
     of neutral: fgWhite
 
-stdout.write period&"\n"&months.indent 4
+stdout.write labels
 for indexYear,year in years:
-  stdout.write "\n"&year.align 8
+  stdout.write "\n"&year
   for (value,ninoDesignation) in monthlyData.monthsIn indexYear:
     stdout.styledWrite ninoDesignation.fgColor,value.formatFloat(ffDecimal,4).align 9

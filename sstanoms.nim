@@ -79,6 +79,9 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int],header:string):seq[st
 func hasValid(period,years:seq[int]):bool =
   period.len > 1 and period[0] < period[1] and period[0] in years and period[1] in years 
 
+func periodLabel(period:(int,int)):string =
+  "Normalized to period: "&($period[0])&"-"&($period[1])&" - inclusive"
+
 proc parsePeriod(param:string,years:seq[int]):(int,int) =
   try: 
     let period = param[6..param.high].split('-').mapIt(it.parseInt) 
@@ -105,9 +108,6 @@ proc skip(default:int):int =
         echo "Invalid skip parameter - using default: ",result
         return
 
-func periodLabel(period:(int,int)):string =
-  "Normalized to period: "&($period[0])&"-"&($period[1])&" - inclusive"
-
 proc fetchAndProces(dataSet:DataSet):array[2,seq[string]] =
   let 
     data = newHttpClient().getContent(dataSet.url)
@@ -132,7 +132,7 @@ proc configFile: string =
     if param.fileExists(): return param
   result = defaultDataSetsCfgFile
 
-for dataSet in readDataSets(configFile()):
+for dataSet in readDataSets configFile():
   echo "Fetching and processing ",dataSet.id," dataset from:\nUrl: ",dataSet.url
   for format,fileLines in dataSet.fetchAndProces: 
     let path = dataSet.id.toLower&formats[format]&".txt"
