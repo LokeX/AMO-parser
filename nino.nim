@@ -1,28 +1,35 @@
 from algorithm import reverse
+from sequtils import zip
 import strutils
-import sequtils
 
 type Designation = enum laNina,elNino,neutral
 
 func ninoSignal(val:float):int =
-  if val >= 0.5: result = 1 elif val <= -0.5: result = -1 else: result = 0
+  if val >= 0.5: 
+    result = 1 
+  elif val <= -0.5: 
+    result = -1 
+  else: 
+    result = 0
 
 func signalSwitch(oldSignal,newSignal:int):int =
-  if newSignal == 0: result = 0 else: result = oldSignal+newSignal
+  if newSignal == 0: result = 0  else: 
+    result = oldSignal+newSignal
 
 func ninoSignals(vals:openArray[float]):seq[int] =
-  result.add 0.signalSwitch vals[0].ninoSignal
-  for val in vals[1..vals.high]: result.add result[^1].signalSwitch val.ninoSignal
+  result.add signalSwitch(0,vals[0].ninoSignal)
+  for val in vals[1..vals.high]: 
+    result.add signalSwitch(result[^1],val.ninoSignal)
 
-iterator inReverse[T](x:openArray[T]):T {.inline.} =
+iterator reversed[T](x:openArray[T]):T {.inline.} =
   var idx = x.high
   while idx >= x.low:
     yield x[idx]
     dec idx
 
 func ninoDesignations(signals:openArray[int]):seq[Designation] =
-  var switch:int
-  for signal in signals.inReverse:
+  var switch = 0
+  for signal in signals.reversed:
     if signal <= -5 or signal >= 5: 
       switch = signal
     elif signal == 0: 
@@ -34,11 +41,12 @@ func ninoDesignations(signals:openArray[int]):seq[Designation] =
     else: result.add neutral
   reverse result
 
-func parse(fileLines:openArray[string]):(seq[string],seq[float]) =
+func parse(fileLines:openArray[string]):(string,seq[string],seq[float]) =
+  result[0] = fileLines[0]
   for line in fileLines[1..fileLines.high]:
-    result[0].add line[0..3]
+    result[1].add line[0..3]
     for valStr in line[4..line.high].splitWhitespace: 
-      result[1].add valStr.parseFloat
+      result[2].add valStr.parseFloat
 
 func monthsIn[T](months:openArray[T],indexYear:int):seq[T] =
   let 
@@ -46,16 +54,14 @@ func monthsIn[T](months:openArray[T],indexYear:int):seq[T] =
     endMonth = if startMonth+11 > months.high: months.high else: startMonth+11
   months[startMonth..endMonth]
 
-proc readFileLines(path:string):seq[string] =
+proc fileLines(path:string):seq[string] =
   for line in lines path: result.add line
 
 let 
-  fileLines = readFileLines "nina34matrix.txt"
-  (years,vals) = parse fileLines
-  monthlyData = vals.zip vals.ninoSignals.ninoDesignations
-  months = fileLines[0]
+  (months,years,values) = parse fileLines "nina34matrix.txt"
+  monthlyData = zip(values,values.ninoSignals.ninoDesignations)
 
-import terminal #Last possible moment: the import bothers vs-code intellisense - just weird
+from terminal import ForegroundColor,styledWrite
 
 func fgColor(designation:Designation):ForegroundColor =
   case designation
@@ -64,7 +70,7 @@ func fgColor(designation:Designation):ForegroundColor =
     of neutral: fgWhite
 
 stdout.write months.indent 4
-for indexYear,yearLabel in years:
-  stdout.write "\n"&yearLabel.indent 4
+for indexYear,year in years:
+  stdout.write "\n"&year.indent 4
   for (value,ninoDesignation) in monthlyData.monthsIn indexYear:
     stdout.styledWrite ninoDesignation.fgColor,value.formatFloat(ffDecimal,4).align 9
