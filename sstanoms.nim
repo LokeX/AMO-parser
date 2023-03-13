@@ -63,7 +63,7 @@ func columnFormat(dataPoints:seq[DataPoint],header:string):seq[string] =
   for dataPoint in dataPoints:
     result.add (
       ($dataPoint.month)[0..2]&" "&($dataPoint.year)&
-      dataPoint.anom.formatFloat(ffDecimal,4)
+      dataPoint.anom.formatFloat(ffDecimal,4).indent 4
     )
 
 func matrixFormat(dataPoints:seq[DataPoint],years:seq[int],header:string):seq[string] =

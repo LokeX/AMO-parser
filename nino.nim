@@ -30,10 +30,10 @@ iterator reversed[T](x:openArray[T]):T {.inline.} =
 func ninoDesignations(signals:openArray[int]):seq[Designation] =
   var switch = 0
   for signal in signals.reversed:
-    if signal <= -5 or signal >= 5: 
-      switch = signal
-    elif signal == 0: 
+    if signal == 0:
       switch = 0
+    else:
+      switch = signal
     if signal < 0 and switch < 0:
       result.add laNina
     elif signal > 0 and switch > 0:
@@ -48,7 +48,7 @@ func parse(fileLines:openArray[string]):(string,seq[string],seq[float]) =
     for valStr in line[4..line.high].splitWhitespace: 
       result[2].add valStr.parseFloat
 
-func monthsIn[T](months:openArray[T],indexYear:int):seq[T] =
+func monthsOf[T](months:openArray[T],indexYear:int):seq[T] =
   let 
     startMonth = indexYear*12
     endMonth = if startMonth+11 > months.high: months.high else: startMonth+11
@@ -73,5 +73,5 @@ func fgColor(designation:Designation):ForegroundColor =
 stdout.write labels
 for indexYear,year in years:
   stdout.write "\n"&year
-  for (value,ninoDesignation) in monthlyData.monthsIn indexYear:
+  for (value,ninoDesignation) in monthlyData.monthsOf indexYear:
     stdout.styledWrite ninoDesignation.fgColor,value.formatFloat(ffDecimal,4).align 9
