@@ -6,16 +6,10 @@ import sugar
 type Designation = enum laNina,elNino,neutral
 
 func ninoSignal(val:float):int =
-  if val >= 0.5: 
-    result = 1 
-  elif val <= -0.5: 
-    result = -1 
-  else: 
-    result = 0
+  if val >= 0.5: 1 elif val <= -0.5: -1 else: 0
 
 func carrySignal(oldSignal,newSignal:int):int =
-  if newSignal == 0: result = 0  else: 
-    result = oldSignal+newSignal
+  if newSignal == 0: 0 else: oldSignal+newSignal
 
 func ninoSignals(vals:openArray[float]):seq[int] =
   result.add carrySignal(0,vals[0].ninoSignal)
@@ -42,9 +36,9 @@ func ninoState(nino:Designation): int -> Designation =
 proc ninoDesignations(signals:openArray[int]):seq[Designation] =
   let nino = neutral.ninoState
   for signal in signals.reversed:
-    if signal < 0 and (nino signal) == laNina:
+    if signal < 0 and nino(signal) == laNina:
       result.add laNina
-    elif signal > 0 and (nino signal) == elNino:
+    elif signal > 0 and nino(signal) == elNino:
       result.add elNino
     else: result.add neutral
   reverse result
@@ -69,7 +63,7 @@ let
   (labels,years,values) = parse fileLines "nina34matrix.txt"
   monthlyData = zip(values,values.ninoSignals.ninoDesignations)
 
-#Importing the terminal module breakes vs-code intellisense, so we delay to here
+#Importing the terminal module breaks vs-code intellisense(WTF); so we delay to here
 from terminal import ForegroundColor,styledWrite
 
 func fgColor(designation:Designation):ForegroundColor =
