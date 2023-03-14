@@ -1,6 +1,7 @@
 from algorithm import reverse
 from sequtils import zip
 import strutils
+import sugar
 
 type Designation = enum laNina,elNino,neutral
 
@@ -12,14 +13,14 @@ func ninoSignal(val:float):int =
   else: 
     result = 0
 
-func signalSwitch(oldSignal,newSignal:int):int =
+func signalCarry(oldSignal,newSignal:int):int =
   if newSignal == 0: result = 0  else: 
     result = oldSignal+newSignal
 
 func ninoSignals(vals:openArray[float]):seq[int] =
-  result.add signalSwitch(0,vals[0].ninoSignal)
+  result.add signalCarry(0,vals[0].ninoSignal)
   for val in vals[1..vals.high]: 
-    result.add signalSwitch(result[^1],val.ninoSignal)
+    result.add signalCarry(result[^1],val.ninoSignal)
 
 iterator reversed[T](x:openArray[T]):T {.inline.} =
   var idx = x.high
@@ -27,16 +28,23 @@ iterator reversed[T](x:openArray[T]):T {.inline.} =
     yield x[idx]
     dec idx
 
-func ninoDesignations(signals:openArray[int]):seq[Designation] =
-  var switch = 0
-  for signal in signals.reversed:
+func ninoState(nino:Designation): int -> Designation =
+  var ninoState = nino
+  return func(signal:int):Designation =
     if signal == 0:
-      switch = 0
-    else:
-      switch = signal
-    if signal < 0 and switch < 0:
+      ninoState = neutral
+    elif signal <= -5:
+      ninoState = laNina
+    elif signal >= 5:
+      ninoState = elNino
+    ninoState
+
+proc ninoDesignations(signals:openArray[int]):seq[Designation] =
+  var nino = ninoState(neutral)
+  for signal in signals.reversed:
+    if signal < 0 and nino(signal) == laNina:
       result.add laNina
-    elif signal > 0 and switch > 0:
+    elif signal > 0 and nino(signal) == elNino:
       result.add elNino
     else: result.add neutral
   reverse result
@@ -61,7 +69,7 @@ let
   (labels,years,values) = parse fileLines "nina34matrix.txt"
   monthlyData = zip(values,values.ninoSignals.ninoDesignations)
 
-#Importing the terminal module makes vs-code intellisense go weird, so we delay to here
+#Importing the terminal module breakes vs-code intellisense, so we delay to here
 from terminal import ForegroundColor,styledWrite
 
 func fgColor(designation:Designation):ForegroundColor =
