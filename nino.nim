@@ -1,9 +1,8 @@
 from algorithm import reverse
 from sequtils import zip
 import strutils
-import sugar
 
-type Designation = enum laNina,elNino,neutral
+type Designation = enum neutral,laNina,elNino
 
 func ninoSignal(val:float):int =
   if val >= 0.5: 1 elif val <= -0.5: -1 else: 0
@@ -22,25 +21,16 @@ iterator reversed[T](x:openArray[T]):T {.inline.} =
     yield x[idx]
     dec idx
 
-func ninoState(nino:Designation): int -> Designation =
-  var ninoState = nino
-  return func(signal:int):Designation =
+proc ninoDesignations(signals:openArray[int]):seq[Designation] =
+  var ninoState = neutral
+  for signal in signals.reversed: 
     if signal == 0:
       ninoState = neutral
     elif signal <= -5:
       ninoState = laNina
     elif signal >= 5:
       ninoState = elNino
-    ninoState
-
-proc ninoDesignations(signals:openArray[int]):seq[Designation] =
-  let nino = neutral.ninoState
-  for signal in signals.reversed:
-    if signal < 0 and nino(signal) == laNina:
-      result.add laNina
-    elif signal > 0 and nino(signal) == elNino:
-      result.add elNino
-    else: result.add neutral
+    result.add ninoState
   reverse result
 
 func parse(fileLines:openArray[string]):(string,seq[string],seq[float]) =
