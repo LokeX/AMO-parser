@@ -31,10 +31,13 @@ func generateDataPoints(years:seq[int],values:seq[float]):seq[DataPoint] =
       if idx < values.high: inc idx else: return
 
 func calcMonthlyMeansData(dataPoints:seq[DataPoint],period:(int,int)):array[Month,MeanData] =
-  for datapoint in datapoints:
-    if datapoint.year >= period[0] and datapoint.year <= period[1]:
-      result[datapoint.month].accum += datapoint.value
-      result[datapoint.month].count += 1
+  let 
+    startPoint = (period[0]-dataPoints[0].year)*12
+    tempPoint = ((period[1]-dataPoints[0].year+1)*12)-1
+    endPoint = if tempPoint > dataPoints.high: dataPoints.high else: tempPoint
+  for datapoint in datapoints[startPoint..endPoint]:
+    result[datapoint.month].accum += datapoint.value
+    result[datapoint.month].count += 1
 
 func calcAnoms(dataPoints:seq[DataPoint],period:(int,int)):seq[DataPoint] =
   let monthlyMeansData = dataPoints.calcMonthlyMeansData(period)
