@@ -10,10 +10,10 @@ func ninoSignal(val:float):int =
 func carrySignal(oldSignal,newSignal:int):int =
   if newSignal == 0: 0 else: oldSignal+newSignal
 
-func ninoSignals(vals:openArray[float]):seq[int] =
-  result.add carrySignal(0,vals[0].ninoSignal)
-  for val in vals[1..vals.high]: 
-    result.add carrySignal(result[^1],val.ninoSignal)
+func ninoSignals(values:openArray[float]):seq[int] =
+  result.add carrySignal(0,values[0].ninoSignal)
+  for value in values[1..values.high]: 
+    result.add carrySignal(result[^1],value.ninoSignal)
 
 iterator reversed[T](x:openArray[T]):T {.inline.} =
   var idx = x.high
@@ -21,7 +21,7 @@ iterator reversed[T](x:openArray[T]):T {.inline.} =
     yield x[idx]
     dec idx
 
-proc ninoDesignations(signals:openArray[int]):seq[Designation] =
+func ninoDesignations(signals:openArray[int]):seq[Designation] =
   var ninoState = neutral
   for signal in signals.reversed: 
     if signal == 0:
