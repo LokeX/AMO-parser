@@ -139,5 +139,5 @@ for dataSet in readDataSets configFile():
   echo "Fetching and processing ",dataSet.id," dataset from:\nUrl: ",dataSet.url
   for format,fileLines in dataSet.fetchAndProces: 
     let path = dataSet.id.toLower&formats[format]&".txt"
-    writeFile(path,fileLines.join("\r\n"))
+    writeFile(path,fileLines.join("\n"))
     echo "Wrote ",dataSet.id," dataset as ",formats[format]," to file: ",path
