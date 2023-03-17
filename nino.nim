@@ -4,8 +4,8 @@ import strutils
 
 type Designation = enum neutral,laNina,elNino
 
-func ninoSignal(val:float):int =
-  if val >= 0.5: 1 elif val <= -0.5: -1 else: 0
+func ninoSignal(value:float):int =
+  if value >= 0.5: 1 elif value <= -0.5: -1 else: 0
 
 func carrySignal(oldSignal,newSignal:int):int =
   if newSignal == 0: 0 else: oldSignal+newSignal
