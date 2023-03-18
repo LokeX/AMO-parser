@@ -82,7 +82,7 @@ func matrixFormat(dataPoints:seq[DataPoint],years:seq[int],header:string):seq[st
 func hasValid(period,years:seq[int]):bool =
   period.len > 1 and period[0] < period[1] and period[0] in years and period[1] in years 
 
-func periodLabel(period:(int,int)):string =
+func label(period:(int,int)):string =
   "Normalized to period: "&($period[0])&"-"&($period[1])&" - inclusive"
 
 proc parsePeriod(param:string,years:seq[int]):(int,int) =
@@ -115,9 +115,10 @@ proc fetchAndProces(dataSet:DataSet):array[2,seq[string]] =
   let 
     data = newHttpClient().getContent(dataSet.url)
     (years,values) = data.parseDataItems(dataSet.id,skip(2)).parseYearsAndValues
-    period = years.normalizationPeriod.periodLabel
-    dataPoints = generateDataPoints(years,values).calcAnoms(years.normalizationPeriod)
-  [dataPoints.columnFormat(period),dataPoints.matrixFormat(years,period)]  
+    period = years.normalizationPeriod
+    dataPoints = generateDataPoints(years,values).calcAnoms(period)
+    periodLabel = period.label
+  [dataPoints.columnFormat(periodLabel),dataPoints.matrixFormat(years,periodLabel)]  
 
 proc readDataSets(path:string):seq[DataSet] =
   if not fileExists(path): writeFile(defaultDataSetsCfgFile,defaultDataSetsCfgLines())
