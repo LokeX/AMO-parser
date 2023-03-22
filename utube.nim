@@ -1,32 +1,83 @@
+import asyncdispatch
 import httpClient
 import strutils
+import sequtils
 import os
 
-proc content(channel:string):string =
-  newHttpClient().getContent("https://www.youtube.com/"&channel&"/videos")
+const channelsFile = "channels.txt"
 
-proc getUrl(channel,urlId:string):string =
+func channelUrl(channel:string):string =
+  "https://www.youtube.com/"&channel&"/videos"
+
+func parseUrl(channelContent,urlId:string):string =
   let 
-    source = channel.content
-    pos = source.find(urlId)
-    urlStart = source.find('"',pos+urlId.high+2)
-    urlEnd = source.find('"',urlStart+1)
-  source[urlStart+1..urlEnd-1]
+    pos = channelContent.find(urlId)
+    urlStart = channelContent.find('"',pos+urlId.high+2)
+    urlEnd = channelContent.find('"',urlStart+1)
+  channelContent[urlStart+1..urlEnd-1]
 
-proc channel(default:string):string =
+proc fileLines(prm:string):string =
+  if fileExists(channelsFile):
+    for line in lines(channelsFile): result.add line&"\n"
+    if result.find(prm) == -1: result.add prm&"\n"
+
+proc paramChannel(default:string):string =
   for param in commandLineParams():
-    if param.startsWith("@"): return param
+    if param.startsWith("@"): 
+      try: 
+        discard newHttpClient().getContent(channelUrl param)
+      except: return default
+      writeFile(channelsFile,fileLines(param.toLower))
+      return param
   default
 
-let 
-  uChannel = channel("@WeebUnionWU")
-  channelRssUrl = getUrl(uChannel,"rssUrl")
-  entries = newHttpClient().getContent(channelRssUrl).splitLines
+func parseEntries(rssLines:openArray[string]):(seq[string],seq[string]) =
+  for line in rssLines[7..rssLines.high]:
+    let l = line.strip
+    if l.startsWith("<title>"):
+      result[0].add l["<title>".len..l.find("<",6)-1]
+    elif l.startsWith("<link"):
+      result[1].add l[l.find("http")..l.find('>')-3]
 
-echo getUrl(uChannel,"channelUrl")
-for line in entries[7..entries.high]:
-  let l = line.strip
-  if l.startsWith("<link"):
-    echo l[l.find("http")..l.find('>')-3]
-  elif l.startsWith("<title>"):
-    echo l["<title>".len..l.find("<",6)-1]
+proc channelsUrls(fileName:string):seq[string] =
+  for line in lines(fileName): result.add line.channelUrl
+
+proc urlFuture(url:string):Future[string] {.async.} =
+  return await newAsyncHttpClient().getContent(url)
+
+proc urlsContent(urls:openArray[string]):seq[string] =
+  waitFor all urls.mapIt(it.urlFuture)
+
+func zipTuple[T,U](x:(seq[T],seq[U])):seq[(T,U)] = zip(x[0],x[1])
+
+proc allLatestChannelsEntries(fileName:string):seq[(string,string)] =
+  channelsUrls(fileName)
+  .urlsContent()
+  .mapIt(it.parseUrl("rssUrl"))
+  .urlsContent()
+  .mapIt(parseEntries(it.splitLines).zipTuple[0])
+
+proc allChannelEntries(prmChannel:string):seq[(string,string)] =
+  let
+    http = newHttpClient()
+    channelContent = http.getContent channelUrl prmChannel
+    channelRssUrl = channelContent.parseUrl("rssUrl")
+    rssLines = http.getContent(channelRssUrl).splitLines
+  echo channelRssUrl  
+  rssLines.parseEntries.zipTuple
+
+proc write(rssItems:(string,string))
+
+let prmChannel = paramChannel("channelsFile")
+if prmChannel == "channelsFile":
+  let latestChannelsEntries = allLatestChannelsEntries(channelsFile)
+  for channelEntry in latestChannelsEntries: write channelEntry
+else:
+  let channelEntries = allChannelEntries(prmChannel)
+  for channelEntry in channelEntries: write channelEntry
+
+import terminal
+proc write(rssItems:(string,string)) =
+  let (header,url) = rssItems
+  stdout.styledWriteLine fgYellow,header
+  stdout.styledWriteLine fgMagenta,url
