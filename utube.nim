@@ -66,18 +66,16 @@ proc allChannelEntries(prmChannel:string):seq[(string,string)] =
   echo channelRssUrl  
   rssLines.parseEntries.zipTuple
 
-proc write(rssItems:(string,string))
+proc write(channelEntries:seq[(string,string)])
 
 let prmChannel = paramChannel("channelsFile")
 if prmChannel == "channelsFile":
-  let latestChannelsEntries = allLatestChannelsEntries(channelsFile)
-  for channelEntry in latestChannelsEntries: write channelEntry
+  write allLatestChannelsEntries(channelsFile)
 else:
-  let channelEntries = allChannelEntries(prmChannel)
-  for channelEntry in channelEntries: write channelEntry
+  write allChannelEntries(prmChannel)
 
 import terminal
-proc write(rssItems:(string,string)) =
-  let (header,url) = rssItems
-  stdout.styledWriteLine fgYellow,header
-  stdout.styledWriteLine fgMagenta,url
+proc write(channelEntries:seq[(string,string)]) =
+  for (header,url) in channelEntries:
+    stdout.styledWriteLine fgYellow,header
+    stdout.styledWriteLine fgMagenta,url
