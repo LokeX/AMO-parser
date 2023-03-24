@@ -32,25 +32,27 @@ proc paramChannel(default:string):string =
       return param
   default
 
+func rssFieldsFilled(rssItem:RssEntry):bool =
+  for field in rssItem.fields:
+    if field.len == 0: return
+  return true
+
 func parseEntries(rssLines:openArray[string],max:int):seq[RssEntry] =
-  var entries:array[4,seq[string]]
+  var newRssEntry:RssEntry
+  result.add newRssEntry
   for line in rssLines[9..rssLines.high]:
     let ls = line.strip
     if ls.startsWith("<title>"):
-      entries[0].add ls["<title>".len..ls.find("<",6)-1]
+      result[^1].header = ls["<title>".len..ls.find("<",6)-1]
     elif ls.startsWith("<name>"):
-      entries[1].add ls["<name>".len..ls.find("<",6)-1]
+      result[^1].name = ls["<name>".len..ls.find("<",6)-1]
     elif ls.startsWith("<updated>"):
-      entries[2].add ls["<updated>".len..ls.find("T",6)-1]
+      result[^1].time = ls["<updated>".len..ls.find("T",6)-1]
     elif ls.startsWith("<link"):
-      entries[3].add ls[ls.find("http")..ls.find('>')-3]
-    let e = entries.mapIt(it.len).deduplicate
-    if max > 0 and e.len == 1 and e[0] == max: break
-  for idx in 0..entries[entries.mapIt(it.len).minIndex].high:
-    result.add (
-      entries[0][idx],entries[1][idx],
-      entries[2][idx],entries[3][idx]
-    )
+      result[^1].url = ls[ls.find("http")..ls.find('>')-3]
+    if result[^1].rssFieldsFilled:
+      if result.len == max: return else: result.add newRssEntry
+  if not result[^1].rssFieldsFilled: result.setLen(result.len-1)
 
 proc channelsUrls(fileName:string):seq[string] =
   for line in lines(fileName): result.add line.channelUrl
