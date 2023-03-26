@@ -27,12 +27,10 @@ const
       a:visited {
         text-decoration: none;
       }
-
       a:hover {
         color: darkgoldenrod;
         text-decoration: underline;
       }
-
       a:active {
         text-decoration: none;
       }			
@@ -128,12 +126,27 @@ proc urlFuture(url:string):Future[string] {.async.} =
 proc urlsContent(urls:openArray[string]):seq[string] =
   waitFor all urls.mapIt(it.urlFuture)
 
+proc maxEntries:int =
+  for param in commandLineParams():
+    try: 
+      result = param.parseInt 
+      return
+    except: discard
+  return 1
+
+func flatMap[T](x:seq[seq[T]]):seq[T] =
+  for y in x:
+    for z in y:
+      result.add z
+
 proc allLatestChannelsEntries(fileName:string):seq[RssEntry] =
+  let max = maxEntries()
   channelsUrls(fileName)
   .urlsContent()
   .mapIt(it.parseUrl("rssUrl"))
   .urlsContent()
-  .mapIt(it.splitLines.parseEntries(1)[0])
+  .mapIt(it.splitLines.parseEntries(max))
+  .flatMap()
 
 proc allChannelEntries(prmChannel:string):seq[RssEntry] =
   let
@@ -150,12 +163,16 @@ func generateHTML(rssEntries:openArray[RssEntry]):string =
     result.add startRssHTML
     result.add "<a href = \""&rssEntry.url&"\">"
     result.add "<img src = \""&rssEntry.nail&"\" width = \"100\" style = \"float:left;\">"
-    result.add "<h2><sp><sp>"&rssEntry.name&": "&rssEntry.time&"</h2>"
+    result.add "<h2>"&rssEntry.name&": "&rssEntry.time&"</h2>"
     result.add "<h1>  "&rssEntry.header&"</h1>"
     result.add "</a>"
     result.add endRssHTML
     result.add "\n"
   result.add endHTML
+
+proc browserPresent:bool =
+  for param in commandLineParams():
+    if param.toLower.startsWith("-b"):return true
 
 proc write(channelEntries:seq[RssEntry])
 
@@ -164,11 +181,10 @@ let
   entries = 
     if prmChannel == "channelsFile":
       allLatestChannelsEntries(channelsFile)
-    else:
-      allChannelEntries(prmChannel)
+    else: allChannelEntries(prmChannel)
 write entries
 writeFile("utube.html",generateHTML(entries))
-openDefaultBrowser("utube.html")
+if browserPresent(): openDefaultBrowser("utube.html")
 
 import terminal
 proc write(channelEntries:seq[RssEntry]) =
@@ -177,4 +193,3 @@ proc write(channelEntries:seq[RssEntry]) =
     stdout.styledWrite fgBlue,entry.time&": "
     stdout.styledWriteLine fgYellow,entry.header
     stdout.styledWriteLine fgMagenta,entry.url
-    stdout.styledWriteLine fgRed,entry.nail

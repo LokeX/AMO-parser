@@ -28,6 +28,11 @@ iterator zipem*[T,U](x:openArray[T],y:openArray[U]): (T,U) =
 
 func zipTuple*[T,U](x:(seq[T],seq[U])):seq[(T,U)] = zip(x[0],x[1])
 
+func flatMap*[T](x:seq[seq[T]]):seq[T] =
+  for y in x:
+    for z in y:
+      result.add z
+
 var test = [1,2,3,4,5,6,7,8]
 echo test.fiMapSeq(y => y mod 2 == 0, x => (x*2).toFloat)
 for t in test.fiMap(y => y mod 2 == 0, x => x*2): echo t
