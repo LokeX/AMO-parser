@@ -117,13 +117,13 @@ func parseEntries(rssLines:openArray[string],maxEntries:int):seq[RssEntry] =
       result.add newRssEntry
   result.setLen(result.len-1)
 
-proc channelsUrls(fileName:string):seq[string] =
+proc fileUrls(fileName:string):seq[string] =
   for line in lines(fileName): result.add line.channelUrl
 
 proc urlFuture(url:string):Future[string] {.async.} =
   return await newAsyncHttpClient().getContent(url)
 
-proc urlsContent(urls:openArray[string]):seq[string] =
+proc urlsGetContent(urls:openArray[string]):seq[string] =
   waitFor all urls.mapIt(it.urlFuture)
 
 proc maxEntries:int =
@@ -132,30 +132,30 @@ proc maxEntries:int =
       result = param.parseInt 
       return
     except: discard
-  return 1
+  return -1
 
 func flatMap[T](x:seq[seq[T]]):seq[T] =
   for y in x:
     for z in y:
       result.add z
 
-proc allLatestChannelsEntries(fileName:string):seq[RssEntry] =
+proc allChannelsEntries(fileName:string):seq[RssEntry] =
   let max = maxEntries()
-  channelsUrls(fileName)
-  .urlsContent()
+  fileUrls(fileName)
+  .urlsGetContent
   .mapIt(it.parseUrl("rssUrl"))
-  .urlsContent()
-  .mapIt(it.splitLines.parseEntries(max))
-  .flatMap()
+  .urlsGetContent
+  .mapIt(it.splitLines.parseEntries(if max < 1: 1 else: max))
+  .flatMap
 
-proc allChannelEntries(prmChannel:string):seq[RssEntry] =
+proc channelEntries(prmChannel:string):seq[RssEntry] =
   let
     http = newHttpClient()
     channelContent = http.getContent channelUrl prmChannel
     channelRssUrl = channelContent.parseUrl("rssUrl")
     rssLines = http.getContent(channelRssUrl).splitLines
   echo channelRssUrl  
-  rssLines.parseEntries(-1)
+  rssLines.parseEntries maxEntries()
 
 func generateHTML(rssEntries:openArray[RssEntry]):string =
   result.add startHTML
@@ -170,7 +170,7 @@ func generateHTML(rssEntries:openArray[RssEntry]):string =
     result.add "\n"
   result.add endHTML
 
-proc browserPresent:bool =
+proc toBrowser:bool =
   for param in commandLineParams():
     if param.toLower.startsWith("-b"):return true
 
@@ -179,12 +179,11 @@ proc write(channelEntries:seq[RssEntry])
 let 
   prmChannel = paramChannel("channelsFile")
   entries = 
-    if prmChannel == "channelsFile":
-      allLatestChannelsEntries(channelsFile)
-    else: allChannelEntries(prmChannel)
+    if prmChannel == "channelsFile": allChannelsEntries(channelsFile)
+    else: channelEntries(prmChannel)
 write entries
 writeFile("utube.html",generateHTML(entries))
-if browserPresent(): openDefaultBrowser("utube.html")
+if toBrowser(): openDefaultBrowser("utube.html")
 
 import terminal
 proc write(channelEntries:seq[RssEntry]) =
