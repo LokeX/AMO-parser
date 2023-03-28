@@ -21,16 +21,13 @@ iterator reversed[T](x:openArray[T]):T {.inline.} =
     yield x[idx]
     dec idx
 
-func ninoDesignations(signals:openArray[int]):seq[Designation] =
-  var ninoState = neutral
+func ninoDesignations(signals:openArray[int]): seq[Designation] =
   for signal in signals.reversed: 
-    if signal == 0:
-      ninoState = neutral
-    elif signal <= -5:
-      ninoState = laNina
-    elif signal >= 5:
-      ninoState = elNino
-    result.add ninoState
+    case signal
+    of 0: result.add neutral
+    of int.low..(-5): result.add laNina
+    of 5..int.high: result.add elNino
+    else: result.add result[^1]
   reverse result
 
 func parse(fileLines:openArray[string]):(string,seq[string],seq[float]) =
