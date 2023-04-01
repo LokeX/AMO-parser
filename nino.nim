@@ -15,7 +15,7 @@ func ninoSignals(values:openArray[float]):seq[int] =
   for value in values[1..values.high]: 
     result.add carrySignal(result[^1],value.ninoSignal)
 
-iterator reversed[T](x:openArray[T]):T {.inline.} =
+iterator reversed[T](x:openArray[T]):T =
   var idx = x.high
   while idx >= x.low:
     yield x[idx]

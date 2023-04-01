@@ -1,5 +1,6 @@
 import asyncdispatch
 import httpClient
+import threadPool
 import strutils
 import sequtils
 import browsers
@@ -77,54 +78,37 @@ func parseUrl(channelContent,urlId:string):string =
     urlEnd = channelContent.find('"',urlStart+1)
   channelContent[urlStart+1..urlEnd-1]
 
-proc fileLines(prm:string):string =
-  if fileExists(channelsFile):
-    for line in lines(channelsFile): result.add line&"\n"
-  if result.find(prm) == -1: result.add prm&"\n"
-
-proc paramChannel(default:string):string =
-  for param in commandLineParams():
-    if param.startsWith("@"): 
-      try: 
-        discard newHttpClient().getContent(channelUrl param)
-      except: return default
-      writeFile(channelsFile,fileLines(param.toLower))
-      return param
-  default
-
 func rssFieldsFilled(rssItem:RssEntry):bool =
   for field in rssItem.fields:
     if field.len == 0: return
   return true
 
-func parseEntries(rssLines:openArray[string],maxEntries:int):seq[RssEntry] =
+func parseEntries(rss:string,maxEntries:int):seq[RssEntry] =
+  let rssLines = rss.splitLines
   var newRssEntry:RssEntry
   result.add newRssEntry
   for line in rssLines[9..rssLines.high]:
     let ls = line.strip
-    if ls.startsWith("<title>"):
+    if ls.startsWith "<title>":
       result[^1].header = ls["<title>".len..ls.find("<",6)-1]
-    elif ls.startsWith("<name>"):
+    elif ls.startsWith "<name>":
       result[^1].name = ls["<name>".len..ls.find("<",6)-1]
-    elif ls.startsWith("<updated>"):
+    elif ls.startsWith "<updated>":
       result[^1].time = ls["<updated>".len..ls.find("T",6)-1]
-    elif ls.startsWith("<link"):
+    elif ls.startsWith "<link":
       result[^1].url = ls[ls.find("http")..ls.find('>')-3]
-    elif ls.startsWith("<media:thumbnail"):
+    elif ls.startsWith "<media:thumbnail":
       result[^1].nail = ls[ls.find("http")..ls.find('"',25)-1]
     if result[^1].rssFieldsFilled:
       if result.len == maxEntries: return 
       result.add newRssEntry
-  result.setLen(result.len-1)
-
-proc fileUrls(fileName:string):seq[string] =
-  for line in lines(fileName): result.add line.channelUrl
+  result.setLen result.len-1
 
 proc urlFuture(url:string):Future[string] {.async.} =
-  return await newAsyncHttpClient().getContent(url)
+  return await newAsyncHttpClient().getContent url
 
 proc urlsGetContent(urls:openArray[string]):seq[string] =
-  waitFor all urls.mapIt(it.urlFuture)
+  waitFor all urls.mapIt it.urlFuture
 
 proc maxEntries:int =
   for param in commandLineParams():
@@ -139,24 +123,6 @@ func flatMap[T](x:seq[seq[T]]):seq[T] =
     for z in y:
       result.add z
 
-proc allChannelsEntries(fileName:string):seq[RssEntry] =
-  let max = maxEntries()
-  fileUrls(fileName)
-  .urlsGetContent
-  .mapIt(it.parseUrl("rssUrl"))
-  .urlsGetContent
-  .mapIt(it.splitLines.parseEntries(if max < 1: 1 else: max))
-  .flatMap
-
-proc channelEntries(prmChannel:string):seq[RssEntry] =
-  let
-    http = newHttpClient()
-    channelContent = http.getContent channelUrl prmChannel
-    channelRssUrl = channelContent.parseUrl("rssUrl")
-    rssLines = http.getContent(channelRssUrl).splitLines
-  echo channelRssUrl  
-  rssLines.parseEntries maxEntries()
-
 func generateHTML(rssEntries:openArray[RssEntry]):string =
   result.add startHTML
   for rssEntry in rssEntries:
@@ -170,20 +136,61 @@ func generateHTML(rssEntries:openArray[RssEntry]):string =
     result.add "\n"
   result.add endHTML
 
-proc toBrowser:bool =
+proc gotParam(prm:string):bool =
   for param in commandLineParams():
-    if param.toLower.startsWith("-b"):return true
+    if param.toLower.startsWith prm: return true
+
+proc channelsFileWith(prmChannel:string):seq[string] =
+  if fileExists channelsFile:
+    for line in lines channelsFile: result.add line
+  if gotParam "-d": 
+    result = result.filterIt(it != prmChannel) 
+  elif prmChannel != "channelsFile" and result.find(prmChannel) == -1: 
+    result.add prmChannel
+
+proc paramChannel(default:string):string =
+  for param in commandLineParams():
+    if param.startsWith "@": 
+      try: 
+        discard newHttpClient().getContent channelUrl param
+      except: return default
+      return param.toLower
+  default
+
+proc allChannelsEntries(channels:openArray[string]):seq[RssEntry] =
+  let max = maxEntries()
+  channels.mapIt(it.channelUrl)
+  .urlsGetContent
+  .mapIt(spawn it.parseUrl "rssUrl")
+  .mapIt(^it)
+  .urlsGetContent
+  .mapIt(spawn it.parseEntries(if max < 1: 1 else: max))
+  .mapIt(^it)
+  .flatMap
+
+proc channelEntries(prmChannel:string):seq[RssEntry] =
+  let
+    http = newHttpClient()
+    channelContent = http.getContent channelUrl prmChannel
+    channelRssUrl = channelContent.parseUrl "rssUrl"
+    rssLines = http.getContent(channelRssUrl)
+  echo channelRssUrl  
+  rssLines.parseEntries maxEntries()
 
 proc write(channelEntries:seq[RssEntry])
 
 let 
-  prmChannel = paramChannel("channelsFile")
+  prmChannel = paramChannel "channelsFile"
+  channels = channelsFileWith prmChannel
   entries = 
-    if prmChannel == "channelsFile": allChannelsEntries(channelsFile)
-    else: channelEntries(prmChannel)
-write entries
-writeFile("utube.html",generateHTML(entries))
-if toBrowser(): openDefaultBrowser("utube.html")
+    if gotParam("-d") or prmChannel == "channelsFile": 
+      allChannelsEntries channels
+    else: channelEntries prmChannel
+if gotParam "-b": 
+  writeFile "utube.html",generateHTML entries
+  openDefaultBrowser "utube.html"
+else: write entries
+writeFile channelsFile,channels.join("\n")
 
 import terminal
 proc write(channelEntries:seq[RssEntry]) =

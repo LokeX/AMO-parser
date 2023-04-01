@@ -1,5 +1,6 @@
 import sequtils
 import sugar
+
 iterator fiMap*[T,U](a:openArray[T],f:T -> bool,m:T -> U): U =
   for b in a:
     if f(b): yield m(b)
