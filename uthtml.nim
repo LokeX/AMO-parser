@@ -1,3 +1,5 @@
+const 
+  startHTML* = """
 <!DOCTYPE html>
 <html>
   <head>
@@ -47,8 +49,10 @@
 		</style>
   </head>
   <body>
-<div id="textArea"><a href = "https://www.youtube.com/watch?v=EROPAtm0WXc"><img src = "https://i2.ytimg.com/vi/EROPAtm0WXc/hqdefault.jpg" width = "100" style = "float:left;"><h2>HistoryLegends: 2023-03-29</h2><h1>  Ukraine's Spring Offensive Might Run Into a Wall</h1></a></div>
-<div id="textArea"><a href = "https://www.youtube.com/watch?v=_SLihFYOhz0"><img src = "https://i4.ytimg.com/vi/_SLihFYOhz0/hqdefault.jpg" width = "100" style = "float:left;"><h2>HistoryLegends: 2023-03-13</h2><h1>  BAKHMUT WAS A TRAP</h1></a></div>
-<div id="textArea"><a href = "https://www.youtube.com/watch?v=d3-5kUwVR80"><img src = "https://i1.ytimg.com/vi/d3-5kUwVR80/hqdefault.jpg" width = "100" style = "float:left;"><h2>HistoryLegends: 2023-03-09</h2><h1>  HOW RUSSIA FAILED TO CAPTURE VUHLEDAR (Analysis)</h1></a></div>
+"""
+  endHTML* = """
   </body>
 </html>
+"""
+  startRssHTML* = """<div id="textArea">"""
+  endRssHTML* = """</div>"""

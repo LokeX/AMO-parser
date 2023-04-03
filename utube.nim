@@ -1,72 +1,35 @@
 import asyncdispatch
 import httpClient
 import threadPool
+import uthtml
 import strutils
 import sequtils
 import browsers
 import os
 
-const 
-  channelsFile = "channels.txt"
-  startHTML = """
-<!DOCTYPE html>
-<html>
-  <head>
-		<meta charset="utf8">
-		<meta name="viewport" content="width=device-width">
-		<style type="text/css">
-			body {
-				background-color: #1B0C0C;
-			}
-			img {
-				padding: 0px 10px 0px 0px;
-			}
-      a:link {
-        text-decoration: none;
-      }
+const channelsFile = "channels.txt"
 
-      a:visited {
-        text-decoration: none;
-      }
-      a:hover {
-        color: darkgoldenrod;
-        text-decoration: underline;
-      }
-      a:active {
-        text-decoration: none;
-      }			
-      #textArea {
-				padding: 1px 1px 1px 10px;
-				width: 95%;
-				border-style: inset;
-				border: 3px groove;
-				border-radius: 5px;
-				border: 1px solid black;
-				background-color: rgb(27, 27, 27);
-				border-radius: 5px;
-			}
-			h1 {
-				color: darkgoldenrod;
-				font-family: Ariel;
-				font-size: medium;
-			}
-			h2 {
-				color: magenta;
-				font-family: Ariel;
-				font-size: large;
-			}
-		</style>
-  </head>
-  <body>
-"""
-  endHTML = """
-  </body>
-</html>
-"""
-  startRssHTML = """<div id="textArea">"""
-  endRssHTML = """</div>"""
+type 
+  RssEntry = tuple[header,name,time,url,nail:string]
+  PrmSet = tuple 
+    browser,delete:bool
+    channel,fileName:string
+    maxEntries:int
 
-type RssEntry = tuple[header,name,time,url,nail:string]
+proc getPrmSet:PrmSet =
+  for param in commandLineParams():
+    case param[0]
+    of '@': result.channel = param.toLower
+    of '-':
+      case param[1]
+      of 'b':result.browser = true
+      of 'd':result.delete = true
+      else: discard
+    else:
+      try: result.maxEntries = param.parseInt except: 
+        result.fileName = param&".txt"
+  if result.fileName.len == 0: 
+    result.fileName = channelsFile
 
 func channelUrl(channel:string):string =
   "https://www.youtube.com/"&channel&"/videos"
@@ -100,7 +63,8 @@ func parseEntries(rss:string,maxEntries:int):seq[RssEntry] =
     elif ls.startsWith "<media:thumbnail":
       result[^1].nail = ls[ls.find("http")..ls.find('"',25)-1]
     if result[^1].rssFieldsFilled:
-      if result.len == maxEntries: return 
+      if result.len == maxEntries: 
+        return 
       result.add newRssEntry
   result.setLen result.len-1
 
@@ -109,14 +73,6 @@ proc urlFuture(url:string):Future[string] {.async.} =
 
 proc urlsGetContent(urls:openArray[string]):seq[string] =
   waitFor all urls.mapIt it.urlFuture
-
-proc maxEntries:int =
-  for param in commandLineParams():
-    try: 
-      result = param.parseInt 
-      return
-    except: discard
-  return -1
 
 func flatMap[T](x:seq[seq[T]]):seq[T] =
   for y in x:
@@ -136,61 +92,48 @@ func generateHTML(rssEntries:openArray[RssEntry]):string =
     result.add "\n"
   result.add endHTML
 
-proc gotParam(prm:string):bool =
-  for param in commandLineParams():
-    if param.toLower.startsWith prm: return true
+proc channelsFileWith(prmSet:PrmSet):seq[string] =
+  if fileExists prmSet.fileName:
+    for line in lines prmSet.fileName: result.add line
+  if prmSet.delete: 
+    result = result.filterIt(it != prmSet.channel) 
+  elif prmSet.channel.len > 0 and result.find(prmSet.channel) == -1: 
+    result.add prmSet.channel
 
-proc channelsFileWith(prmChannel:string):seq[string] =
-  if fileExists channelsFile:
-    for line in lines channelsFile: result.add line
-  if gotParam "-d": 
-    result = result.filterIt(it != prmChannel) 
-  elif prmChannel != "channelsFile" and result.find(prmChannel) == -1: 
-    result.add prmChannel
-
-proc paramChannel(default:string):string =
-  for param in commandLineParams():
-    if param.startsWith "@": 
-      try: 
-        discard newHttpClient().getContent channelUrl param
-      except: return default
-      return param.toLower
-  default
-
-proc allChannelsEntries(channels:openArray[string]):seq[RssEntry] =
-  let max = maxEntries()
+proc allChannelsEntries(channels:openArray[string],maxEntries:int):seq[RssEntry] =
   channels.mapIt(it.channelUrl)
   .urlsGetContent
   .mapIt(spawn it.parseUrl "rssUrl")
   .mapIt(^it)
   .urlsGetContent
-  .mapIt(spawn it.parseEntries(if max < 1: 1 else: max))
+  .mapIt(spawn it.parseEntries(if maxEntries < 1: 1 else: maxEntries))
   .mapIt(^it)
   .flatMap
 
-proc channelEntries(prmChannel:string):seq[RssEntry] =
+proc channelEntries(prmChannel:string,maxEntries:int):seq[RssEntry] =
   let
     http = newHttpClient()
     channelContent = http.getContent channelUrl prmChannel
     channelRssUrl = channelContent.parseUrl "rssUrl"
     rssLines = http.getContent(channelRssUrl)
   echo channelRssUrl  
-  rssLines.parseEntries maxEntries()
+  rssLines.parseEntries maxEntries
 
 proc write(channelEntries:seq[RssEntry])
 
 let 
-  prmChannel = paramChannel "channelsFile"
-  channels = channelsFileWith prmChannel
+  prmSet = getPrmSet()
+  channels = channelsFileWith prmSet
   entries = 
-    if gotParam("-d") or prmChannel == "channelsFile": 
-      allChannelsEntries channels
-    else: channelEntries prmChannel
-if gotParam "-b": 
+    if prmSet.delete or prmSet.channel.len == 0:
+      allChannelsEntries channels,prmSet.maxEntries
+    else: channelEntries prmSet.channel,prmSet.maxEntries
+if prmSet.browser: 
   writeFile "utube.html",generateHTML entries
   openDefaultBrowser "utube.html"
 else: write entries
-writeFile channelsFile,channels.join("\n")
+writeFile prmSet.fileName,channels.join("\n")
+echo prmSet
 
 import terminal
 proc write(channelEntries:seq[RssEntry]) =
