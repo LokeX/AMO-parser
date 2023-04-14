@@ -121,19 +121,23 @@ proc channelEntries(prmChannel:string,maxEntries:int):seq[RssEntry] =
 
 proc write(channelEntries:seq[RssEntry])
 
-let 
-  prmSet = getPrmSet()
-  channels = channelsFileWith prmSet
-  entries = 
-    if prmSet.delete or prmSet.channel.len == 0:
-      allChannelsEntries channels,prmSet.maxEntries
-    else: channelEntries prmSet.channel,prmSet.maxEntries
-if prmSet.browser: 
-  writeFile "utube.html",generateHTML entries
-  openDefaultBrowser "utube.html"
-else: write entries
-writeFile prmSet.fileName,channels.join("\n")
-echo prmSet
+template init(prmSet,uChannels,rssEntries,codeBlock:untyped) =
+  let 
+    prmSet = getPrmSet()
+    uChannels = channelsFileWith prmSet
+    rssEntries = 
+      if prmSet.delete or prmSet.channel.len == 0:
+        allChannelsEntries uChannels,prmSet.maxEntries
+      else: channelEntries prmSet.channel,prmSet.maxEntries
+  codeBlock
+
+init(params,channels,entries):
+  if params.browser: 
+    writeFile "utube.html",generateHTML entries
+    openDefaultBrowser "utube.html"
+  else: write entries
+  writeFile params.fileName,channels.join("\n")
+  echo params
 
 import terminal
 proc write(channelEntries:seq[RssEntry]) =

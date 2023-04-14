@@ -22,7 +22,7 @@ iterator reversed*[T](x:openArray[T]):T {.inline.} =
 
 iterator zipem*[T,U](x:openArray[T],y:openArray[U]): (T,U) =
   var idx = 0
-  let idxEnd = if x.high <= y.high: x.high else: y.high
+  let idxEnd = min(x.high,y.high)
   while idx <= idxEnd:
     yield (x[idx],y[idx])
     inc idx
@@ -34,8 +34,12 @@ func flatMap*[T](x:seq[seq[T]]):seq[T] =
     for z in y:
       result.add z
 
-var test = [1,2,3,4,5,6,7,8]
+var 
+  test = @[1,2,3,4,5,6,7,8]
+  test2 = test
 echo test.fiMapSeq(y => y mod 2 == 0, x => (x*2).toFloat)
 for t in test.fiMap(y => y mod 2 == 0, x => x*2): echo t
+for t in zipem(test,test2): echo t
 test.muMap(x => x*3)
 echo test
+echo zipTuple (test,test2)
