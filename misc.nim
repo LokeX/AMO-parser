@@ -1,13 +1,16 @@
 import sequtils
 import sugar
 
+template init*[T](t:var T) = t = default typeof T
+
 iterator fiMap*[T,U](a:openArray[T],f:T -> bool,m:T -> U): U =
   for b in a:
     if f(b): yield m(b)
 
 func fiMapSeq*[T,U](x:openArray[T],f:T -> bool,m:T -> U):seq[U] =
-  for y in x.fiMap(f,m): result.add y
-
+  # for y in x.fiMap(f,m): result.add y
+  x.fimap(f,m).toSeq
+  
 proc muMap*[T,U](x:var openArray[T],m:T -> U) =
   var idx = 0
   while idx <= x.high:
@@ -34,12 +37,21 @@ func flatMap*[T](x:seq[seq[T]]):seq[T] =
     for z in y:
       result.add z
 
-var 
-  test = @[1,2,3,4,5,6,7,8]
-  test2 = test
-echo test.fiMapSeq(y => y mod 2 == 0, x => (x*2).toFloat)
-for t in test.fiMap(y => y mod 2 == 0, x => x*2): echo t
-for t in zipem(test,test2): echo t
-test.muMap(x => x*3)
-echo test
-echo zipTuple (test,test2)
+var t1 = (1, "foo")
+var t2 = default(typeof(t1))
+echo t2
+for v1, v2 in fields(t1, t2): v2 = v1
+echo t1
+echo t2
+
+when isMainModule:
+  var 
+    test = @[1,2,3,4,5,6,7,8]
+    test2 = test
+  echo test.reversed.toSeq
+  echo test.fiMapSeq(y => y mod 2 == 0, x => (x*2).toFloat)
+  for t in test.fiMap(y => y mod 2 == 0, x => x*2): echo t
+  for t in zipem(test,test2): echo t
+  test.muMap(x => x*3)
+  echo test
+  echo zipTuple (test,test2)

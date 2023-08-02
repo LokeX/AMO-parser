@@ -92,7 +92,6 @@ proc parsePeriod(param:string,years:seq[int]):(int,int) =
       raise newException(CatchableError,"")
   except: 
     echo "Invalid normalization period parameter. Usage: -norm:startYear-endYear"
-    echo "Using period: ",result
 
 proc normalizationPeriod(years:seq[int]):(int,int) =
   result = (years[0],years[^1])
