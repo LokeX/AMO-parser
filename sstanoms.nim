@@ -121,8 +121,7 @@ proc fetchAndProces(dataSet:DataSet):array[2,seq[string]] =
 
 proc readDataSets(path:string):seq[DataSet] =
   if not fileExists(path): writeFile(defaultDataSetsCfgFile,defaultDataSetsCfgLines())
-  var dataSetLines:seq[string]
-  for line in lines(path): dataSetLines.add line
+  var dataSetLines:seq[string] = path.lines.toSeq
   if dataSetLines.len mod 2 != 0:
     echo "Invalid number of lines in config file: "&path&"\n - Resetting to default"
     if path == defaultDataSetsCfgFile: writeFile(path,defaultDataSetsCfgLines())
