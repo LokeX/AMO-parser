@@ -1,5 +1,6 @@
 import sequtils
 import strutils
+import os
 
 const
   inOutFiles:array[2,tuple[inFile,outFile:string]] = [
@@ -15,3 +16,16 @@ for files in inOutFiles:
   )
   echo "read file: ",files.inFile
   echo "wrote file: ",files.outFile
+
+# import nimpy
+# import nimpy/py_lib
+# pyInitLibPath("C:\\Users\\perni\\AppData\\Local\\Programs\\Python\\Python312\\python312.dll")
+
+# let 
+#   plt = pyImport("matplotlib.pyplot")
+#   fileName = paramStr(1)&"column.fwf"
+
+# echo "plotting file: ",fileName
+# discard plt.plot(fileName.lines.toSeq.mapIt(it.parseFloat))
+# discard plt.show()
+
