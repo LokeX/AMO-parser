@@ -65,7 +65,7 @@ func columnFormat(dataPoints:seq[DataPoint],header:string):seq[string] =
   result.add header
   for dataPoint in dataPoints:
     result.add (
-      ($dataPoint.month)[0..2]&" "&($dataPoint.year)&
+      ($dataPoint.year)&"-"&($dataPoint.month)[0..2]&
       dataPoint.anom.formatFloat(ffDecimal,4).indent 4
     )
 
@@ -116,7 +116,7 @@ proc fetchAndProces(dataSet:DataSet):array[2,seq[string]] =
     (years,values) = data.parseDataItems(dataSet.id,skip(2)).parseYearsAndValues
     period = years.normalizationPeriod
     dataPoints = generateDataPoints(years,values).calcAnoms(period)
-    periodLabel = period.label
+    periodLabel = dataSet.id&" "&period.label
   [dataPoints.columnFormat(periodLabel),dataPoints.matrixFormat(years,periodLabel)]  
 
 proc readDataSets(path:string):seq[DataSet] =
